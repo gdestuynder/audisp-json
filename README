@@ -1,0 +1,9 @@
+Audisp-cef
+----------
+
+
+This program is a plugin for Linux Audit user space programs available at <http://people.redhat.com/sgrubb/audit/>.
+It uses the audisp multiplexer.
+
+Audisp-cef correlates messages coming from the kernel's audit (and through audisp) into a single CEF message through syslog.
+CEF stands for Common Event Format.
