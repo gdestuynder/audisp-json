@@ -7,3 +7,24 @@ It uses the audisp multiplexer.
 
 Audisp-cef correlates messages coming from the kernel's audit (and through audisp) into a single CEF message through syslog.
 CEF stands for Common Event Format.
+
+Building
+--------
+
+Required dependencies:
+- Audit (2.0+)
+
+For package building:
+- FPM
+- rpmbuild (rpm)
+
+Build targets:
+--------------
+They're self explanatory.
+
+make
+make rpm
+make deb
+make install
+make uninstall
+make clean

@@ -39,15 +39,35 @@ audisp-cef.o:
 	${GCC} -I. ${CFLAGS} ${LIBS} -c -o audisp-cef.o audisp-cef.c
 
 install: audisp-cef au-cef.conf audisp-cef.conf
-	${INSTALL} -m 0644 au-cef.conf ${DESTDIR}/${PREFIX}/etc/audisp/plugins.d/au-cef.conf
-	${INSTALL} -m 0644 audisp-cef.conf ${DESTDIR}/${PREFIX}/etc/audisp/audisp-cef.conf
-	${INSTALL} -m 0755 audisp-cef ${DESTDIR}/${PREFIX}/sbin/audisp-cef
+	${INSTALL} -D -m 0644 au-cef.conf ${DESTDIR}/${PREFIX}/etc/audisp/plugins.d/au-cef.conf
+	${INSTALL} -D -m 0644 audisp-cef.conf ${DESTDIR}/${PREFIX}/etc/audisp/audisp-cef.conf
+	${INSTALL} -D -m 0755 audisp-cef ${DESTDIR}/${PREFIX}/sbin/audisp-cef
 
 uninstall:
 	rm -f ${DESTDIR}/${PREFIX}/etc/audisp/plugins.d/au-cef.conf
 	rm -f ${DESTDIR}/${PREFIX}/etc/audisp/audisp-cef.conf
 	rm -f ${DESTDIR}/${PREFIX}/sbin/audisp-cef
 
+packaging: audisp-cef au-cef.conf audisp-cef.conf
+	${INSTALL} -D -m 0644 au-cef.conf tmp/etc/audisp/plugins.d/au-cef.conf
+	${INSTALL} -D -m 0644 audisp-cef.conf tmp/etc/audisp/audisp-cef.conf
+	${INSTALL} -D -m 0755 audisp-cef tmp/sbin/audisp-cef
+
+rpm: packaging
+	fpm -n audisp-cef --license GPL --vendor mozilla --description "CEF plugin for Linux Audit" \
+		--url https://github.com/gdestuynder/audisp-cef -d audit-libs \
+		--config-files au-cef.conf --config-files audisp-cef.conf -s dir -t rpm tmp
+# Bonus options
+#		--rpm-digest sha512 --rpm-sign
+
+deb: packaging
+	fpm -n audisp-cef --license GPL --vendor mozilla --description "CEF plugin for Linux Audit" \
+		--url https://github.com/gdestuynder/audisp-cef -d auditd --deb-build-depends auditd \
+		--config-files tmp/etc/audisp/plugins.d/au-cef.conf --config-files tmp/etc/audisp/audisp-cef.conf -s dir -t deb tmp
+
 clean:
 	rm -f audisp-cef
-	rm -r *.o
+	rm -fr *.o
+	rm -fr tmp
+	rm -rf *.rpm
+	rm -rf *.deb
