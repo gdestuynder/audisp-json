@@ -224,7 +224,10 @@ char *get_username(int uid)
 
 	if (uid == -1)
 			return NULL;
-	getpwuid_r(uid, &pwd, buf, bufsize, &result);
+	if (getpwuid_r(uid, &pwd, buf, bufsize, &result) != 0)
+		return NULL;
+	if (result == NULL)
+		return NULL;
 	name = strdup(pwd.pw_name);
 	free(buf);
 	return name;
