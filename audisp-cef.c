@@ -449,7 +449,7 @@ static void handle_event(auparse_state_t *au,
 					//if we have had no auid, we set suser to the real source user (else its set to the audited source user)
 					if (i == 0)
 						cef_msg.attr = cef_add_attr(cef_msg.attr, "suser=", get_username(auparse_get_field_int(au)));
-					cef_msg.attr = cef_add_attr(cef_msg.attr, "suid=", auparse_get_field_str(au));
+					cef_msg.attr = cef_add_attr(cef_msg.attr, "uid=", auparse_get_field_str(au));
 				}
 				goto_record_type(au, type);
 
