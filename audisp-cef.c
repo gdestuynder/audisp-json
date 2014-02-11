@@ -42,8 +42,10 @@
 #define CONFIG_FILE "/etc/audisp/audisp-cef.conf"
 //This is the maximum arg len for commands before truncating. Syslog often will otherwise truncate the msg.
 #define MAX_ARG_LEN 512
+#define MAX_ATTR_SIZE 1023
+#define MAX_EXTRA_ATTR_SIZE 128
 #define BUF_SIZE 32
-//Bump when the message is modifie
+//Bump when the message is modified
 #define CEF_AUDIT_MESSAGE_VERSION 2
 
 static volatile int stop = 0;
@@ -160,6 +162,17 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+int add_extra_record(auparse_state_t *au, char *extra, char *attr)
+{
+	size_t len = strlen(extra);
+	size_t attr_len = strlen(attr) ? MAX_EXTRA_ATTR_SIZE:MAX_EXTRA_ATTR_SIZE;
+
+	if ((len+attr_len) > MAX_ATTR_SIZE)
+		return 1;
+	snprintf(extra+len, attr_len, " %s\\=%s", attr, auparse_find_field(au, attr));
+	return 0;
+}
+
 /*
  * This function seeks to the specified record returning its type on succees
  */
@@ -204,7 +217,7 @@ attr_t *cef_add_attr(attr_t *list, const char *st, const char *val)
 			return list;
 
 	new = malloc(sizeof(attr_t));
-	snprintf(new->val, 1023, "%s%s ", st, unescape(val));
+	snprintf(new->val, MAX_ATTR_SIZE, "%s%s ", st, unescape(val));
 	new->next = list;
 	return new;
 }
@@ -284,7 +297,7 @@ static void handle_event(auparse_state_t *au,
 	const char *syscall = NULL;
 	char fullcmd[MAX_ARG_LEN+1] = "\0";
 	char fullcmdt[5] = "No\0";
-	char extra[512] = "\0";
+	char extra[MAX_ARG_LEN] = "\0";
 
 	char f[8];
 	int len, tmplen;
@@ -331,13 +344,13 @@ static void handle_event(auparse_state_t *au,
 					cef_msg.attr = cef_add_attr(cef_msg.attr, "dproc=", get_proc_name(auparse_get_field_int(au)));
 				goto_record_type(au, type);
 
-				snprintf(extra+strlen(extra), 16, "error\\=%s ", auparse_find_field(au, "error"));
+				add_extra_record(au, extra, "error");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "name\\=%s ", auparse_find_field(au, "name"));
+				add_extra_record(au, extra, "name");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "srcname\\=%s ", auparse_find_field(au, "srcname"));
+				add_extra_record(au, extra, "srcname");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "flags\\=%s ", auparse_find_field(au, "flags"));
+				add_extra_record(au, extra, "flags");
 				goto_record_type(au, type);
 				break;
 			case AUDIT_EXECVE:
@@ -371,24 +384,24 @@ static void handle_event(auparse_state_t *au,
 				cwd = auparse_find_field(au, "cwd");
 				if (cwd) {
 					auparse_interpret_field(au);
-					snprintf(extra+strlen(extra), 128, "cwd\\=%s ", cwd);
+					add_extra_record(au, extra, "cwd");
 				}
 				break;
 			case AUDIT_PATH:
 				cef_msg.attr = cef_add_attr(cef_msg.attr, "fname=", auparse_find_field(au, "name"));
 				goto_record_type(au, type);
 
-				snprintf(extra+strlen(extra), 16, "inode\\=%s ", auparse_find_field(au, "inode"));
+				add_extra_record(au, extra, "inode");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "dev\\=%s ", auparse_find_field(au, "dev"));
+				add_extra_record(au, extra, "dev");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "mode\\=%s ", auparse_find_field(au, "mode"));
+				add_extra_record(au, extra, "mode");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "ouid\\=%s ", auparse_find_field(au, "ouid"));
+				add_extra_record(au, extra, "ouid");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "ogid\\=%s ", auparse_find_field(au, "ogid"));
+				add_extra_record(au, extra, "ogid");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "rdev\\=%s ", auparse_find_field(au, "rdev"));
+				add_extra_record(au, extra, "rdev");
 				goto_record_type(au, type);
 				break;
 			case AUDIT_SYSCALL:
@@ -458,23 +471,23 @@ static void handle_event(auparse_state_t *au,
 				cef_msg.attr = cef_add_attr(cef_msg.attr, "dproc=", auparse_find_field(au, "exe"));
 				goto_record_type(au, type);
 
-				snprintf(extra+strlen(extra), 16, "pid\\=%s ", auparse_find_field(au, "pid"));
+				add_extra_record(au, extra, "pid");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "gid\\=%s ", auparse_find_field(au, "gid"));
+				add_extra_record(au, extra, "gid");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "euid\\=%s ", auparse_find_field(au, "euid"));
+				add_extra_record(au, extra, "euid");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "suid\\=%s ", auparse_find_field(au, "suid"));
+				add_extra_record(au, extra, "suid");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "fsuid\\=%s ", auparse_find_field(au, "fsuid"));
+				add_extra_record(au, extra, "fsuid");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "egid\\=%s ", auparse_find_field(au, "egid"));
+				add_extra_record(au, extra, "egid");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "sgid\\=%s ", auparse_find_field(au, "sgid"));
+				add_extra_record(au, extra, "sgid");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "fsgid\\=%s ", auparse_find_field(au, "fsgid"));
+				add_extra_record(au, extra, "fsgid");
 				goto_record_type(au, type);
-				snprintf(extra+strlen(extra), 16, "ses\\=%s ", auparse_find_field(au, "ses"));
+				add_extra_record(au, extra, "ses");
 				goto_record_type(au, type);
 				break;
 			default:
@@ -486,8 +499,8 @@ static void handle_event(auparse_state_t *au,
 	if (!havecef)
 		return;
 
-	if (strlen(extra) > 512) {
-		extra[512] = '\0';
+	if (strlen(extra) >= MAX_ARG_LEN) {
+		extra[MAX_ARG_LEN] = '\0';
 		cef_msg.attr = cef_add_attr(cef_msg.attr, "cs6Label=MsgTruncated cs6=", "Yes");
 	}
 	cef_msg.attr = cef_add_attr(cef_msg.attr, "msg=", extra);
