@@ -29,6 +29,8 @@ INSTALL	:= install
 DESTDIR	:= /
 PREFIX	:= /usr
 
+VERSION	:= 1.1
+
 all: audisp-cef
 
 audisp-cef: cef-config.o audisp-cef.o
@@ -56,14 +58,14 @@ packaging: audisp-cef au-cef.conf audisp-cef.conf
 	${INSTALL} -D -m 0755 audisp-cef tmp/sbin/audisp-cef
 
 rpm: packaging
-	fpm -C tmp -n audisp-cef --license GPL --vendor mozilla --description "CEF plugin for Linux Audit" \
+	fpm -C tmp -v ${VERSION} -n audisp-cef --license GPL --vendor mozilla --description "CEF plugin for Linux Audit" \
 		--url https://github.com/gdestuynder/audisp-cef -d audit-libs \
 		--config-files etc/audisp/plugins.d/au-cef.conf --config-files etc/audisp/audisp-cef.conf -s dir -t rpm .
 # Bonus options
 #		--rpm-digest sha512 --rpm-sign
 
 deb: packaging
-	fpm -C tmp -n audisp-cef --license GPL --vendor mozilla --description "CEF plugin for Linux Audit" \
+	fpm -C tmp -v ${VERSION} -n audisp-cef --license GPL --vendor mozilla --description "CEF plugin for Linux Audit" \
 		--url https://github.com/gdestuynder/audisp-cef -d libaudit0 --deb-build-depends libaudit-dev \
 		--config-files etc/audisp/plugins.d/au-cef.conf --config-files etc/audisp/audisp-cef.conf -s dir -t deb .
 
