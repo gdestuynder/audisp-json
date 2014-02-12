@@ -450,19 +450,15 @@ static void handle_event(auparse_state_t *au,
 					cef_msg.attr = cef_add_attr(cef_msg.attr, "cs5Label=ParentProcess cs5=", get_proc_name(auparse_get_field_int(au)));
 				goto_record_type(au, type);
 
-				i = 0;
 				if (auparse_find_field(au, "auid")) {
 					cef_msg.attr = cef_add_attr(cef_msg.attr, "suser=", get_username(auparse_get_field_int(au)));
 					cef_msg.attr = cef_add_attr(cef_msg.attr, "cn1Label=auid cn1=",  auparse_get_field_str(au));
-					i = 1;
 				}
 				goto_record_type(au, type);
 
 				if (auparse_find_field(au, "uid")) {
-					//if we have had no auid, we set suser to the real source user (else its set to the audited source user)
-					if (i == 0)
-						cef_msg.attr = cef_add_attr(cef_msg.attr, "suser=", get_username(auparse_get_field_int(au)));
-					cef_msg.attr = cef_add_attr(cef_msg.attr, "uid=", auparse_get_field_str(au));
+					cef_msg.attr = cef_add_attr(cef_msg.attr, "duser=", get_username(auparse_get_field_int(au)));
+					cef_msg.attr = cef_add_attr(cef_msg.attr, "duid=", auparse_get_field_str(au));
 				}
 				goto_record_type(au, type);
 
