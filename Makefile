@@ -34,10 +34,10 @@ all: audisp-cef
 audisp-cef: cef-config.o audisp-cef.o
 	${LIBTOOL} --tag=CC --mode=link gcc ${CFLAGS} ${LDFLAGS} ${LIBS} -o audisp-cef cef-config.o audisp-cef.o
 
-cef-config.o:
+cef-config.o: cef-config.c
 	${GCC} -I. ${CFLAGS} ${LIBS} -c -o cef-config.o cef-config.c
 
-audisp-cef.o:
+audisp-cef.o: audisp-cef.c
 	${GCC} -I. ${CFLAGS} ${LIBS} -c -o audisp-cef.o audisp-cef.c
 
 install: audisp-cef au-cef.conf audisp-cef.conf
