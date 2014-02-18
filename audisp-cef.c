@@ -235,12 +235,18 @@ char *get_username(int uid)
 			bufsize = 16384;
 	buf = (char *)malloc(bufsize);
 
-	if (uid == -1)
-			return NULL;
-	if (getpwuid_r(uid, &pwd, buf, bufsize, &result) != 0)
+	if (uid == -1) {
+		free(buf);
 		return NULL;
-	if (result == NULL)
+	}
+	if (getpwuid_r(uid, &pwd, buf, bufsize, &result) != 0) {
+		free(buf);
 		return NULL;
+	}
+	if (result == NULL) {
+		free(buf);
+		return NULL;
+	}
 	name = strdup(pwd.pw_name);
 	free(buf);
 	return name;
