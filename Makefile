@@ -29,7 +29,7 @@ INSTALL	:= install
 DESTDIR	:= /
 PREFIX	:= /usr
 
-VERSION	:= 1.2
+VERSION	:= 1.3
 
 all: audisp-cef
 
