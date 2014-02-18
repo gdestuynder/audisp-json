@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
 	sa.sa_handler = hup_handler;
 
 	uname(&uts);
-	hostname = (char *)malloc(sizeof(uts.nodename));
+	hostname = (char *)alloca(sizeof(uts.nodename));
 	sprintf(hostname, "%s", uts.nodename);
 
 	if (load_config(&config, CONFIG_FILE))
@@ -153,11 +153,11 @@ int main(int argc, char *argv[])
 			break;
 	} while (stop == 0);
 
-	auparse_flush_feed(au);
-	auparse_destroy(au);
-	free(hostname);
 	syslog(LOG_INFO, "audisp-cef unloaded\n");
 	closelog();
+	auparse_flush_feed(au);
+	auparse_destroy(au);
+	free_config(&config);
 
 	return 0;
 }
@@ -233,22 +233,18 @@ char *get_username(int uid)
 	bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
 	if (bufsize == -1)
 			bufsize = 16384;
-	buf = (char *)malloc(bufsize);
+	buf = (char *)alloca(bufsize);
 
 	if (uid == -1) {
-		free(buf);
 		return NULL;
 	}
 	if (getpwuid_r(uid, &pwd, buf, bufsize, &result) != 0) {
-		free(buf);
 		return NULL;
 	}
 	if (result == NULL) {
-		free(buf);
 		return NULL;
 	}
-	name = strdup(pwd.pw_name);
-	free(buf);
+	name = strdupa(pwd.pw_name);
 	return name;
 }
 
@@ -265,6 +261,16 @@ char *get_proc_name(int pid)
 	} else
 		return NULL;
 	return proc;
+}
+
+void cef_del_attrs(attr_t *head)
+{
+	attr_t *prev;
+	while (head) {
+		prev = head;
+		head = head->next;
+		free(prev);
+	}
 }
 
 void syslog_cef_msg(struct cef_msg_type cef_msg)
@@ -314,6 +320,7 @@ static void handle_event(auparse_state_t *au,
 		return;
 
 	while (auparse_goto_record_num(au, num) > 0) {
+		extra[0] = '\0';
 		type = auparse_get_type(au);
 		rc = 0;
 		auparse_first_field(au);
@@ -412,12 +419,15 @@ static void handle_event(auparse_state_t *au,
 				break;
 			case AUDIT_SYSCALL:
 				syscall = auparse_find_field(au, "syscall");
-				if (!syscall)
+				if (!syscall) {
+					cef_del_attrs(cef_msg.attr);
 					return;
+				}
 				i = auparse_get_field_int(au);
 				sys = audit_syscall_to_name(i, machine);
 				if (!sys) {
 					syslog(LOG_INFO, "Unknown system call %u", i);
+					cef_del_attrs(cef_msg.attr);
 					return;
 				}
 
@@ -498,8 +508,10 @@ static void handle_event(auparse_state_t *au,
 		num++;
 	}
 
-	if (!havecef)
+	if (!havecef) {
+		cef_del_attrs(cef_msg.attr);
 		return;
+	}
 
 	if (strlen(extra) >= MAX_ARG_LEN) {
 		extra[MAX_ARG_LEN] = '\0';
@@ -507,5 +519,6 @@ static void handle_event(auparse_state_t *au,
 	}
 	cef_msg.attr = cef_add_attr(cef_msg.attr, "msg=", extra);
 	cef_msg.attr = cef_add_attr(cef_msg.attr, "dhost=", hostname);
+	//This also frees cef_msg.attr
 	syslog_cef_msg(cef_msg);
 }
