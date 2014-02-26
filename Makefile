@@ -66,7 +66,7 @@ rpm: packaging
 
 deb: packaging
 	fpm -C tmp -v ${VERSION} -n audisp-cef --license GPL --vendor mozilla --description "CEF plugin for Linux Audit" \
-		--url https://github.com/gdestuynder/audisp-cef -d libaudit0 --deb-build-depends libaudit-dev \
+		--url https://github.com/gdestuynder/audisp-cef -d auditd --deb-build-depends libaudit-dev \
 		--config-files etc/audisp/plugins.d/au-cef.conf --config-files etc/audisp/audisp-cef.conf -s dir -t deb .
 
 clean:
