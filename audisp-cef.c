@@ -64,10 +64,10 @@ struct cef_msg_type {
 char	*hdr;
 char	*type;
 char	*app;
-int		version;
+int	version;
 char	*msgname;
 char	*msgdesc;
-int		severity;
+int	severity;
 struct	ll *attr;
 time_t	au_time;
 };
