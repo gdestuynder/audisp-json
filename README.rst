@@ -61,6 +61,7 @@ Example for syslog-ng
  ::
 
     source s_syslog { unix-dgram("/dev/log"); };
-    filter f_auditd { not match("type=[0-9]* audit") and facility(local5); };
+    filter f_auditd { message("type=[0-9]* audit") and message("rate limit exceeded") and message("audit_lost=") and facility(local5); };
     destination d_logserver { udp("<SYSLOG_SERVER_IP_HERE>" port(514)); };
     log{ source(s_syslog); filter(f_auditd); destination(d_logserver); };
+    # If you want to "not log" auditd messages, negate the same filter to your other log items
