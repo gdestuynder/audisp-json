@@ -32,7 +32,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pwd.h>
-#include <sys/utsname.h>
+#include <netdb.h>
 #include <sys/stat.h>
 #include <time.h>
 #include "libaudit.h"
@@ -110,7 +110,8 @@ int main(int argc, char *argv[])
 {
 	char tmp[MAX_AUDIT_MESSAGE_LENGTH];
 	struct sigaction sa;
-	struct utsname uts;
+	struct hostent *ht;
+	char nodename[64];
 
 	sa.sa_flags = 0;
 	sigemptyset(&sa.sa_mask);
@@ -118,9 +119,12 @@ int main(int argc, char *argv[])
 	sigaction(SIGTERM, &sa, NULL);
 	sa.sa_handler = hup_handler;
 
-	uname(&uts);
-	hostname = (char *)alloca(sizeof(uts.nodename));
-	sprintf(hostname, "%s", uts.nodename);
+	if (gethostname(nodename, 63)) {
+		snprintf(nodename, 9, "localhost");
+	}
+	nodename[64] = '\0';
+	ht = gethostbyname(nodename);
+	hostname = strdup(ht->h_name);
 
 	if (load_config(&config, CONFIG_FILE))
 		return 1;
@@ -134,9 +138,9 @@ int main(int argc, char *argv[])
 		return -1;
 	}
    
-   machine = audit_detect_machine();
-   if (machine < 0)
-       return -1;
+	machine = audit_detect_machine();
+	if (machine < 0)
+		return -1;
 
 	auparse_add_callback(au, handle_event, NULL, NULL);
 
