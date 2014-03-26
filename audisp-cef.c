@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
 	nodename[64] = '\0';
 	ht = gethostbyname(nodename);
 	if (ht == NULL) {
-		hostname = strpdup("localhost");
+		hostname = strdup("localhost");
 		syslog(LOG_ALERT,
 			"gethostbyname could not find machine hostname, please fix this. Using %s as fallback. Error: %s",
 			hostname, hstrerror(h_errno));
