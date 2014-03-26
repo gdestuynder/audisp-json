@@ -48,6 +48,8 @@
 //Bump when the message is modified
 #define CEF_AUDIT_MESSAGE_VERSION 2
 
+extern int h_errno;
+
 static volatile int stop = 0;
 static volatile int hup = 0;
 static cef_conf_t config;
@@ -119,17 +121,24 @@ int main(int argc, char *argv[])
 	sigaction(SIGTERM, &sa, NULL);
 	sa.sa_handler = hup_handler;
 
+	openlog("audit-cef", LOG_CONS, config.facility);
+
 	if (gethostname(nodename, 63)) {
-		snprintf(nodename, 9, "localhost");
+		snprintf(nodename, 10, "localhost");
 	}
 	nodename[64] = '\0';
 	ht = gethostbyname(nodename);
-	hostname = strdup(ht->h_name);
+	if (ht == NULL) {
+		hostname = strpdup("localhost");
+		syslog(LOG_ALERT,
+			"gethostbyname could not find machine hostname, please fix this. Using %s as fallback. Error: %s",
+			hostname, hstrerror(h_errno));
+	} else {
+		hostname = strdup(ht->h_name);
+	}
 
 	if (load_config(&config, CONFIG_FILE))
 		return 1;
-
-	openlog("audit-cef", LOG_CONS, config.facility);
 
 	au = auparse_init(AUSOURCE_FEED, 0);
 	if (au == NULL) {
