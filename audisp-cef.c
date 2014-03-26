@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
 	sigaction(SIGTERM, &sa, NULL);
 	sa.sa_handler = hup_handler;
 
-	openlog("audit-cef", LOG_CONS, config.facility);
+	openlog("audisp-cef", LOG_CONS, config.facility);
 
 	if (gethostname(nodename, 63)) {
 		snprintf(nodename, 10, "localhost");
