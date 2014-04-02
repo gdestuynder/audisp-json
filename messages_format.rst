@@ -2,7 +2,7 @@
 Messages format
 ===============
 
-This document details the message format for audisp-cef, and lists the possible
+This document details the message format for audisp-json, and lists the possible
 messages.
 
 How, Why, What
@@ -21,13 +21,13 @@ audisp plugins
 ~~~~~~~~~~~~~~
 The messages that auditd receives are then passed to audispd which is a
 multiplexer, sending back those messages to various plugins.
-Audisp-cef is one of the plugins.
+Audisp-json is one of the plugins.
 
-As audisp-cef receives several syscall messages for a single event (like "write
+As audisp-json receives several syscall messages for a single event (like "write
 to a file" or "execute a program"), it correlates on the message info, id and
 aggregates all relevant information for a single event into a single message.
 
-That message is then transformed to CEF format with a type, such as "EXECVE" or
+That message is then transformed to MozDef JSON format with a type, such as "EXECVE" or
 "WRITE" and send to syslog.
 
 Format example
@@ -35,13 +35,46 @@ Format example
 
 .. code::
 
-    CEF:0|Unix|auditd|1|EXECVE|Unix Exec|Low|msg=gid=0  euid=0 suid=0 fsuid=0 egid=0
-    sgid=0 fsgid=0 ses=20944 cwd=”/tmp” inode=00:00 [...] suser=toor
-    dhost=random.stage.host.mozilla.com dst=10.22.1.100 dproc=/usr/bin/gcc fname=gcc
-    cs1=gcc sploit.c -o test cs2=No cs3=exec cs4=pts2 cs5=sudo cs6=No cn1=1663
+    {
+        "category": "EXECVE",
+            "details": {
+                "uid": 0,
+                "gid": 0,
+                "euid": 0,
+                "fsuid": 0,
+                "egid": 0,
+                "suid": 0,
+                "ouid": "(null)",
+                "ogid": "(null)",
+                "rdev": "(null"),
+                "sessionid": 20239,
+                "dev": "(null)",
+                "mode": "(null)",
+                "cwd": "/home/kang",
+                "username": "root",
+                "audited_username": "kang",
+                "auid": 1000,
+                "inode": 283892,
+                "parent_process": "sudo",
+                "process": "/bin/cat",
+                "filename": "(null)",
+                "audit_key": "exe",
+                "tty": "/dev/pts/0",
+                "arguments"
+            },
+            "hostname": "blah.private.scl3.mozilla.com",
+            "processid": 14619,
+            "processname": "audisp-json",
+            "severity": "INFO",
+            "summary": "sudo cat /etc/passwd",
+            "tags": [
+                "linux audit",
+                ],
+            "timestamp": "2014-03-18T23:20:31.013344+00:00"
+    }
 
-Implemented message types
--------------------------
+Implemented message categories
+------------------------------
 
 :WRITE: writes to a file, 'w' in audit.rules.
 :ATTR: change file attributes/metadata, 'a' in audit.rules.

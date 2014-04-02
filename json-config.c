@@ -1,4 +1,4 @@
-/* cef-config.c -- 
+/* json-config.c -- 
  * Copyright (c) 2012 Mozilla Corporation.
  * Copyright 2008 Red Hat Inc., Durham, North Carolina.
  * All Rights Reserved.
@@ -32,7 +32,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include "cef-config.h"
+#include "json-config.h"
 
 struct nv_pair
 {
@@ -44,7 +44,7 @@ struct nv_pair
 struct kw_pair 
 {
 	const char *name;
-	int (*parser)(struct nv_pair *, int, cef_conf_t *);
+	int (*parser)(struct nv_pair *, int, json_conf_t *);
 	int max_options;
 };
 
@@ -58,9 +58,9 @@ static char *get_line(FILE *f, char *buf);
 static int nv_split(char *buf, struct nv_pair *nv);
 static const struct kw_pair *kw_lookup(const char *val);
 static int server_parser(struct nv_pair *nv, int line, 
-		cef_conf_t *config);
+		json_conf_t *config);
 static int port_parser(struct nv_pair *nv, int line, 
-		cef_conf_t *config);
+		json_conf_t *config);
 
 static const struct kw_pair keywords[] =
 {
@@ -72,14 +72,14 @@ static const struct kw_pair keywords[] =
 /*
  * Set everything to its default value
 */
-void clear_config(cef_conf_t *config)
+void clear_config(json_conf_t *config)
 {
 	config->remote_server = NULL;
 	config->port = 514;
 	config->facility = LOG_LOCAL5;
 }
 
-int load_config(cef_conf_t *config, const char *file)
+int load_config(json_conf_t *config, const char *file)
 {
 	int fd, rc, mode, lineno = 1;
 	struct stat st;
@@ -274,7 +274,7 @@ static const struct kw_pair *kw_lookup(const char *val)
 }
 
 static int server_parser(struct nv_pair *nv, int line, 
-		cef_conf_t *config)
+		json_conf_t *config)
 {
 	if (nv->value)
 		config->remote_server = strdup(nv->value);
@@ -324,12 +324,12 @@ static int parse_uint (struct nv_pair *nv, int line, unsigned int *valp, unsigne
 	return 0;
 }
 
-static int port_parser(struct nv_pair *nv, int line, cef_conf_t *config)
+static int port_parser(struct nv_pair *nv, int line, json_conf_t *config)
 {
 	return parse_uint (nv, line, &(config->port), 0, INT_MAX);
 }
 
-void free_config(cef_conf_t *config)
+void free_config(json_conf_t *config)
 {
 	free((void *)config->remote_server);
 }

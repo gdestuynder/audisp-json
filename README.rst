@@ -1,5 +1,5 @@
 ==========
-Audisp-cef
+Audisp-json
 ==========
 
 .. contents:: Table of contents
@@ -7,8 +7,8 @@ Audisp-cef
 This program is a plugin for Linux Audit user space programs available at <http://people.redhat.com/sgrubb/audit/>.
 It uses the audisp multiplexer.
 
-Audisp-cef correlates messages coming from the kernel's audit (and through audisp) into a single CEF message through syslog.
-CEF stands for Common Event Format.
+Audisp-json correlates messages coming from the kernel's audit (and through audisp) into a single JSON message through syslog.
+The JSON format used is MozDef message format.
 
 Building
 --------
@@ -74,7 +74,7 @@ Example for syslog-ng
 Message handling
 ----------------
 
-Syscalls are interpreted by audisp-cef and transformed into a CEF message which has a new attribute.
+Syscalls are interpreted by audisp-json and transformed into a MozDef JSON message.
 This means, for example, all execve() and related calls will be aggregated into a message of type EXECVE.
 
 Supported messages are listed in the document messages_format.rst

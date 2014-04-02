@@ -20,7 +20,7 @@
 
 CFLAGS	:= -fPIE -DPIE -g -D_REENTRANT -D_GNU_SOURCE
 LDFLAGS	:= -pie -Wl,-z,relro
-LIBS	:= -lauparse -laudit
+LIBS	:= -lauparse -laudit `curl-config --libs`
 
 GCC		:= gcc
 LIBTOOL	:= libtool
@@ -31,46 +31,47 @@ PREFIX	:= /usr
 
 VERSION	:= 1.4
 
-all: audisp-cef
+all: audisp-json
 
-audisp-cef: cef-config.o audisp-cef.o
-	${LIBTOOL} --tag=CC --mode=link gcc ${CFLAGS} ${LDFLAGS} ${LIBS} -o audisp-cef cef-config.o audisp-cef.o
+audisp-json: json-config.o audisp-json.o
+	${LIBTOOL} --tag=CC --mode=link gcc ${CFLAGS} ${LDFLAGS} ${LIBS} -o audisp-json json-config.o audisp-json.o
 
-cef-config.o: cef-config.c
-	${GCC} -I. ${CFLAGS} ${LIBS} -c -o cef-config.o cef-config.c
+json-config.o: json-config.c
+	${GCC} -I. ${CFLAGS} ${LIBS} -c -o json-config.o json-config.c
 
-audisp-cef.o: audisp-cef.c
-	${GCC} -I. ${CFLAGS} ${LIBS} -c -o audisp-cef.o audisp-cef.c
+audisp-json.o: audisp-json.c
+	${GCC} -I. ${CFLAGS} ${LIBS} -c -o audisp-json.o audisp-json.c
 
-install: audisp-cef au-cef.conf audisp-cef.conf
-	${INSTALL} -D -m 0644 au-cef.conf ${DESTDIR}/${PREFIX}/etc/audisp/plugins.d/au-cef.conf
-	${INSTALL} -D -m 0644 audisp-cef.conf ${DESTDIR}/${PREFIX}/etc/audisp/audisp-cef.conf
-	${INSTALL} -D -m 0755 audisp-cef ${DESTDIR}/${PREFIX}/sbin/audisp-cef
+install: audisp-json au-json.conf audisp-json.conf
+	${INSTALL} -D -m 0644 au-json.conf ${DESTDIR}/${PREFIX}/etc/audisp/plugins.d/au-json.conf
+	${INSTALL} -D -m 0644 audisp-json.conf ${DESTDIR}/${PREFIX}/etc/audisp/audisp-json.conf
+	${INSTALL} -D -m 0755 audisp-json ${DESTDIR}/${PREFIX}/sbin/audisp-json
 
 uninstall:
-	rm -f ${DESTDIR}/${PREFIX}/etc/audisp/plugins.d/au-cef.conf
-	rm -f ${DESTDIR}/${PREFIX}/etc/audisp/audisp-cef.conf
-	rm -f ${DESTDIR}/${PREFIX}/sbin/audisp-cef
+	rm -f ${DESTDIR}/${PREFIX}/etc/audisp/plugins.d/au-json.conf
+	rm -f ${DESTDIR}/${PREFIX}/etc/audisp/audisp-json.conf
+	rm -f ${DESTDIR}/${PREFIX}/sbin/audisp-json
 
-packaging: audisp-cef au-cef.conf audisp-cef.conf
-	${INSTALL} -D -m 0644 au-cef.conf tmp/etc/audisp/plugins.d/au-cef.conf
-	${INSTALL} -D -m 0644 audisp-cef.conf tmp/etc/audisp/audisp-cef.conf
-	${INSTALL} -D -m 0755 audisp-cef tmp/sbin/audisp-cef
+packaging: audisp-json au-json.conf audisp-json.conf
+	${INSTALL} -D -m 0644 au-json.conf tmp/etc/audisp/plugins.d/au-json.conf
+	${INSTALL} -D -m 0644 audisp-json.conf tmp/etc/audisp/audisp-json.conf
+	${INSTALL} -D -m 0755 audisp-json tmp/sbin/audisp-json
 
 rpm: packaging
-	fpm -C tmp -v ${VERSION} -n audisp-cef --license GPL --vendor mozilla --description "CEF plugin for Linux Audit" \
-		--url https://github.com/gdestuynder/audisp-cef -d audit-libs \
-		--config-files etc/audisp/plugins.d/au-cef.conf --config-files etc/audisp/audisp-cef.conf -s dir -t rpm .
+	fpm -C tmp -v ${VERSION} -n audisp-json --license GPL --vendor mozilla --description "json plugin for Linux Audit" \
+		--url https://github.com/gdestuynder/audisp-json -d audit-libs -d libcurl \
+		--config-files etc/audisp/plugins.d/au-json.conf --config-files etc/audisp/audisp-json.conf -s dir -t rpm .
 # Bonus options
 #		--rpm-digest sha512 --rpm-sign
 
 deb: packaging
-	fpm -C tmp -v ${VERSION} -n audisp-cef --license GPL --vendor mozilla --description "CEF plugin for Linux Audit" \
-		--url https://github.com/gdestuynder/audisp-cef -d auditd --deb-build-depends libaudit-dev \
-		--config-files etc/audisp/plugins.d/au-cef.conf --config-files etc/audisp/audisp-cef.conf -s dir -t deb .
+	fpm -C tmp -v ${VERSION} -n audisp-json --license GPL --vendor mozilla --description "json plugin for Linux Audit" \
+		--url https://github.com/gdestuynder/audisp-json -d auditd -d libcurl \
+		--deb-build-depends libaudit-dev --deb-build-depends libcurl-dev \
+		--config-files etc/audisp/plugins.d/au-json.conf --config-files etc/audisp/audisp-json.conf -s dir -t deb .
 
 clean:
-	rm -f audisp-cef
+	rm -f audisp-json
 	rm -fr *.o
 	rm -fr tmp
 	rm -rf *.rpm

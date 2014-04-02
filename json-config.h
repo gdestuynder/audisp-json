@@ -23,18 +23,18 @@
  * 
  */
 
-#ifndef CEF_CONFIG_H
-#define CEF_CONFIG_H
+#ifndef AUDISP_JSON_CONFIG_H
+#define AUDISP_JSON_CONFIG_H
 
-typedef struct cef_conf
+typedef struct json_conf
 {
 	const char *remote_server;
 	unsigned int port;
 	unsigned int facility;
-} cef_conf_t;
+} json_conf_t;
 
-void clear_config(cef_conf_t *config);
-int  load_config(cef_conf_t *config, const char *file);
-void free_config(cef_conf_t *config);
+void clear_config(json_conf_t *config);
+int  load_config(json_conf_t *config, const char *file);
+void free_config(json_conf_t *config);
 
 #endif
