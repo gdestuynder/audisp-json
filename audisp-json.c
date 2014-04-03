@@ -105,7 +105,7 @@ int http_post(void)
 	slist1 = curl_slist_append(slist1, "Content-Type:application/json");
 
 	hnd = curl_easy_init();
-	curl_easy_setopt(hnd, CURLOPT_URL, "http://localhost:8080/events");
+	curl_easy_setopt(hnd, CURLOPT_URL, config.mozdef_url);
 	curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
 	curl_easy_setopt(hnd, CURLOPT_POSTFIELDS, "");
 	curl_easy_setopt(hnd, CURLOPT_USERAGENT, USER_AGENT);
@@ -170,7 +170,7 @@ int main(int argc, char *argv[])
 	sigaction(SIGTERM, &sa, NULL);
 	sa.sa_handler = hup_handler;
 
-	openlog("audisp-json", LOG_CONS, config.facility);
+	openlog("audisp-json", LOG_CONS, LOG_DAEMON);
 
 	if (gethostname(nodename, 63)) {
 		snprintf(nodename, 10, "localhost");

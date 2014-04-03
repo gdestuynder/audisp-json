@@ -28,9 +28,7 @@
 
 typedef struct json_conf
 {
-	const char *remote_server;
-	unsigned int port;
-	unsigned int facility;
+	const char *mozdef_url;
 } json_conf_t;
 
 void clear_config(json_conf_t *config);

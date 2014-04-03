@@ -64,9 +64,7 @@ static int port_parser(struct nv_pair *nv, int line,
 
 static const struct kw_pair keywords[] =
 {
-	{"remote_server",    server_parser,           0 },
-	{"port",             port_parser,             0 },
-	{"facility",         port_parser,             0 },
+	{"mozdef_url",    server_parser,           0 },
 };
 
 /*
@@ -74,9 +72,7 @@ static const struct kw_pair keywords[] =
 */
 void clear_config(json_conf_t *config)
 {
-	config->remote_server = NULL;
-	config->port = 514;
-	config->facility = LOG_LOCAL5;
+	config->mozdef_url = NULL;
 }
 
 int load_config(json_conf_t *config, const char *file)
@@ -277,60 +273,14 @@ static int server_parser(struct nv_pair *nv, int line,
 		json_conf_t *config)
 {
 	if (nv->value)
-		config->remote_server = strdup(nv->value);
+		config->mozdef_url = strdup(nv->value);
 	else
-		config->remote_server = NULL;
+		config->mozdef_url = NULL;
 	return 0;
-}
-
-static int parse_uint (struct nv_pair *nv, int line, unsigned int *valp, unsigned int min, unsigned int max)
-{
-	const char *ptr = nv->value;
-	unsigned int i;
-
-	/* check that all chars are numbers */
-	for (i=0; ptr[i]; i++) {
-		if (!isdigit(ptr[i])) {
-			syslog(LOG_ERR,
-				"Value %s should only be numbers - line %d",
-				nv->value, line);
-			return 1;
-		}
-	}
-
-	/* convert to unsigned int */
-	errno = 0;
-	i = strtoul(nv->value, NULL, 10);
-	if (errno) {
-		syslog(LOG_ERR,
-			"Error converting string to a number (%s) - line %d",
-			strerror(errno), line);
-		return 1;
-	}
-	/* Check its range */
-	if (min != 0 && i < (int)min) {
-		syslog(LOG_ERR,
-			"Error - converted number (%s) is too small - line %d",
-			nv->value, line);
-		return 1;
-	}
-	if (max != 0 && i > max) {
-		syslog(LOG_ERR,
-			"Error - converted number (%s) is too large - line %d",
-			nv->value, line);
-		return 1;
-	}
-	*valp = (unsigned int)i;
-	return 0;
-}
-
-static int port_parser(struct nv_pair *nv, int line, json_conf_t *config)
-{
-	return parse_uint (nv, line, &(config->port), 0, INT_MAX);
 }
 
 void free_config(json_conf_t *config)
 {
-	free((void *)config->remote_server);
+	free((void *)config->mozdef_url);
 }
 
