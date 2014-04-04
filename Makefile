@@ -18,9 +18,12 @@
 # Authors:
 #   Guillaume Destuynder <gdestuynder@mozilla.com>
 
+VERSION	:= 1.4
+
 CFLAGS	:= -fPIE -DPIE -g -D_REENTRANT -D_GNU_SOURCE
 LDFLAGS	:= -pie -Wl,-z,relro
 LIBS	:= -lauparse -laudit `curl-config --libs`
+DEFINES	:= -DPROGRAM_VERSION\=${VERSION}
 
 GCC		:= gcc
 LIBTOOL	:= libtool
@@ -29,12 +32,10 @@ INSTALL	:= install
 DESTDIR	:= /
 PREFIX	:= /usr
 
-VERSION	:= 1.4
-
 all: audisp-json
 
 audisp-json: json-config.o audisp-json.o
-	${LIBTOOL} --tag=CC --mode=link gcc ${CFLAGS} ${LDFLAGS} ${LIBS} -o audisp-json json-config.o audisp-json.o
+	${LIBTOOL} --tag=CC --mode=link gcc ${CFLAGS} ${LDFLAGS} ${LIBS} ${DEFINES} -o audisp-json json-config.o audisp-json.o
 
 json-config.o: json-config.c
 	${GCC} -I. ${CFLAGS} ${LIBS} -c -o json-config.o json-config.c
