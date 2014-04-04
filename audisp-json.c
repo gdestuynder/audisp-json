@@ -41,14 +41,17 @@
 #include "json-config.h"
 
 #define CONFIG_FILE "/etc/audisp/audisp-json.conf"
-#define MAX_ARG_LEN 512
+#define MAX_JSON_MSG_SIZE 2048
+#define MAX_ARG_LEN 2048
 #define MAX_ATTR_SIZE 1023
-#define MAX_EXTRA_ATTR_SIZE 128
 #define BUF_SIZE 32
 #ifndef PROGRAM_VERSION
 #define PROGRAM_VERSION 1
 #endif
-#define USER_AGENT "audisp-json/PROGRAM_VERSION"
+#ifndef PROGRAME_NAME
+#define PROGRAM_NAME "audisp-json"
+#endif
+#define USER_AGENT "PROGRAM_NAME/PROGRAM_VERSION"
 
 extern int h_errno;
 
@@ -65,15 +68,14 @@ typedef struct	ll {
 } attr_t;
 
 struct json_msg_type {
-char	*hdr;
-char	*type;
-char	*app;
-int	version;
-char	*msgname;
-char	*msgdesc;
-int	severity;
-struct	ll *attr;
-time_t	au_time;
+	char	*category;
+	char	*summary;
+	char	*severity;
+	char	*hostname;
+	int		processid;
+	char	*processname;
+	char	*timestamp;
+	struct	ll *details;
 };
 
 static void handle_event(auparse_state_t *au,
@@ -92,53 +94,6 @@ static void hup_handler( int sig )
 static void reload_config(void)
 {
 	hup = 0;
-}
-
-/* Post to mozdef */
-int http_post(void)
-{
-	CURLcode ret;
-	CURL *hnd;
-	struct curl_slist *slist1;
-
-	slist1 = NULL;
-	slist1 = curl_slist_append(slist1, "Content-Type:application/json");
-
-	hnd = curl_easy_init();
-	curl_easy_setopt(hnd, CURLOPT_URL, config.mozdef_url);
-	curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
-	curl_easy_setopt(hnd, CURLOPT_POSTFIELDS, "");
-	curl_easy_setopt(hnd, CURLOPT_USERAGENT, USER_AGENT);
-	curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, slist1);
-	curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 50L);
-	curl_easy_setopt(hnd, CURLOPT_CUSTOMREQUEST, "POST");
-	curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
-
-	/* Here is a list of options the curl code used that cannot get generated
-	   as source easily. You may select to either not use them or implement
-	   them yourself.
-
-	   CURLOPT_WRITEDATA set to a objectpointer
-	   CURLOPT_WRITEFUNCTION set to a functionpointer
-	   CURLOPT_READDATA set to a objectpointer
-	   CURLOPT_READFUNCTION set to a functionpointer
-	   CURLOPT_SEEKDATA set to a objectpointer
-	   CURLOPT_SEEKFUNCTION set to a functionpointer
-	   CURLOPT_ERRORBUFFER set to a objectpointer
-	   CURLOPT_STDERR set to a objectpointer
-	   CURLOPT_HEADERFUNCTION set to a functionpointer
-	   CURLOPT_HEADERDATA set to a objectpointer
-
-*/
-
-	ret = curl_easy_perform(hnd);
-
-	curl_easy_cleanup(hnd);
-	hnd = NULL;
-	curl_slist_free_all(slist1);
-	slist1 = NULL;
-
-	return (int)ret;
 }
 
 /* find string distance from *in until char c is reached */
@@ -170,7 +125,7 @@ int main(int argc, char *argv[])
 	sigaction(SIGTERM, &sa, NULL);
 	sa.sa_handler = hup_handler;
 
-	openlog("audisp-json", LOG_CONS, LOG_DAEMON);
+	openlog(PROGRAM_NAME, LOG_CONS, LOG_DAEMON);
 
 	if (gethostname(nodename, 63)) {
 		snprintf(nodename, 10, "localhost");
@@ -202,7 +157,7 @@ int main(int argc, char *argv[])
 
 	auparse_add_callback(au, handle_event, NULL, NULL);
 
-	syslog(LOG_INFO, "audisp-json loaded\n");
+	syslog(LOG_INFO, "%s loaded\n", PROGRAM_NAME);
 	do {
 		if (hup)
 			reload_config();
@@ -215,23 +170,12 @@ int main(int argc, char *argv[])
 			break;
 	} while (stop == 0);
 
-	syslog(LOG_INFO, "audisp-json unloaded\n");
+	syslog(LOG_INFO, "%s unloaded\n", PROGRAM_NAME);
 	closelog();
 	auparse_flush_feed(au);
 	auparse_destroy(au);
 	free_config(&config);
 
-	return 0;
-}
-
-int add_extra_record(auparse_state_t *au, char *extra, char *attr)
-{
-	size_t len = strlen(extra);
-	size_t attr_len = strlen(attr) ? MAX_EXTRA_ATTR_SIZE:MAX_EXTRA_ATTR_SIZE;
-
-	if ((len+attr_len) > MAX_ATTR_SIZE)
-		return 1;
-	snprintf(extra+len, attr_len, " %s\\=%s", attr, auparse_find_field(au, attr));
 	return 0;
 }
 
@@ -279,7 +223,7 @@ attr_t *json_add_attr(attr_t *list, const char *st, const char *val)
 			return list;
 
 	new = malloc(sizeof(attr_t));
-	snprintf(new->val, MAX_ATTR_SIZE, "%s%s ", st, unescape(val));
+	snprintf(new->val, MAX_ATTR_SIZE, "\t\t\"%s\": \"%s\"", st, unescape(val));
 	new->next = list;
 	return new;
 }
@@ -335,21 +279,83 @@ void json_del_attrs(attr_t *head)
 	}
 }
 
-void syslog_json_msg(struct json_msg_type json_msg)
+int syslog_json_msg(struct json_msg_type json_msg)
 {
-	attr_t *head = json_msg.attr;
+	attr_t *head = json_msg.details;
 	attr_t *prev;
-	char msg[1500];
+	char msg[MAX_JSON_MSG_SIZE];
+	CURLcode ret;
+	CURL *hnd;
+	struct curl_slist *slist1;
 
-	snprintf(msg, 1500, "%s|%s|%s|%u|%s|%s|%u|end=%ld ", json_msg.hdr, json_msg.type, json_msg.app,
-		json_msg.version, json_msg.msgname, json_msg.msgdesc, json_msg.severity, json_msg.au_time);
+	slist1 = NULL;
+	slist1 = curl_slist_append(slist1, "Content-Type:application/json");
+
+	hnd = curl_easy_init();
+	curl_easy_setopt(hnd, CURLOPT_URL, config.mozdef_url);
+	curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
+	curl_easy_setopt(hnd, CURLOPT_POSTFIELDS, "");
+	curl_easy_setopt(hnd, CURLOPT_USERAGENT, USER_AGENT);
+	curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, slist1);
+	curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 50L);
+	curl_easy_setopt(hnd, CURLOPT_CUSTOMREQUEST, "POST");
+	curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
+
+	/* Here is a list of options the curl code used that cannot get generated
+	   as source easily. You may select to either not use them or implement
+	   them yourself.
+
+	   CURLOPT_WRITEDATA set to a objectpointer
+	   CURLOPT_WRITEFUNCTION set to a functionpointer
+	   CURLOPT_READDATA set to a objectpointer
+	   CURLOPT_READFUNCTION set to a functionpointer
+	   CURLOPT_SEEKDATA set to a objectpointer
+	   CURLOPT_SEEKFUNCTION set to a functionpointer
+	   CURLOPT_ERRORBUFFER set to a objectpointer
+	   CURLOPT_STDERR set to a objectpointer
+	   CURLOPT_HEADERFUNCTION set to a functionpointer
+	   CURLOPT_HEADERDATA set to a objectpointer
+
+*/
+
+	snprintf(msg, MAX_JSON_MSG_SIZE,
+"{\n\
+	\"category\": \"%s\",\n\
+	\"summary\": \"%s\",\n\
+	\"severity\": \"%s\",\n\
+	\"hostname\": \"%s\",\n\
+	\"processid\": \"%u\",\n\
+	\"processname\": \"%s\",\n\
+	\"timestamp\": \"%s\",\n\
+	\"tags\": [\n\
+		\"%s\",\n\
+		\"%u\",\n\
+		\"audit\"\n\
+	],\n\
+	\"details\": {",
+		json_msg.category, json_msg.summary, json_msg.severity, json_msg.hostname, json_msg.processid,
+		json_msg.processname, json_msg.timestamp, PROGRAM_NAME, PROGRAM_VERSION);
+
 	while (head) {
-			snprintf(msg+strlen(msg), 1500, "%s", head->val);
+			snprintf(msg+strlen(msg), MAX_JSON_MSG_SIZE, "\n%s,", head->val);
 			prev = head;
 			head = head->next;
 			free(prev);
+
+			if (head == NULL) {
+				msg[strlen(msg)-1] = '\n';
+			}
 	}
-	syslog(LOG_INFO, "%s", msg);
+	snprintf(msg+strlen(msg), MAX_JSON_MSG_SIZE, "	}\n}");
+
+	ret = curl_easy_perform(hnd);
+	curl_easy_cleanup(hnd);
+	hnd = NULL;
+	curl_slist_free_all(slist1);
+	slist1 = NULL;
+
+	printf("%s\n", msg);
+	return (int)ret;
 }
 
 static void handle_event(auparse_state_t *au,
@@ -359,15 +365,22 @@ static void handle_event(auparse_state_t *au,
 	time_t au_time;
 
 	struct json_msg_type json_msg = {
-		.severity	= 3,
+		.category		= NULL,
+		.hostname		= hostname,
+		.processid		= 0,
+		.processname	= NULL,
+		.severity		= "INFO",
+		.summary		= NULL,
+		.timestamp		= NULL,
+		.details		= NULL,
 	};
 
 	const char *cwd = NULL, *argc = NULL, *cmd = NULL;
 	const char *sys;
 	const char *syscall = NULL;
 	char fullcmd[MAX_ARG_LEN+1] = "\0";
-	char fullcmdt[5] = "No\0";
-	char extra[MAX_ARG_LEN] = "\0";
+	time_t t;
+	struct tm *tmp;
 
 	char f[8];
 	int len, tmplen;
@@ -377,12 +390,16 @@ static void handle_event(auparse_state_t *au,
 	if (cb_event_type != AUPARSE_CB_EVENT_READY)
 		return;
 
+	json_msg.timestamp = (char *)alloca(64);
+
 	while (auparse_goto_record_num(au, num) > 0) {
-		extra[0] = '\0';
 		type = auparse_get_type(au);
 		rc = 0;
 		auparse_first_field(au);
-		json_msg.au_time = auparse_get_time(au);
+		t = auparse_get_time(au);
+		tmp = localtime(&t);
+		strftime(json_msg.timestamp, 64, "%FT%T%z", tmp);
+
 		switch (type) {
 		   	case AUDIT_AVC:
 				argc = auparse_find_field(au, "apparmor");
@@ -390,38 +407,38 @@ static void handle_event(auparse_state_t *au,
 					return;
 
 				havejson = 1;
-				json_msg.msgname = "AVC_APPARMOR";
+				json_msg.category = "AVC_APPARMOR";
 
-				json_msg.attr = json_add_attr(json_msg.attr, "cs1Label=Result cs1=", auparse_get_field_str(au));
+				json_msg.details = json_add_attr(json_msg.details, "aaresult", auparse_get_field_str(au));
 				goto_record_type(au, type);
 
-				json_msg.msgdesc = unescape(auparse_find_field(au, "info"));
+				json_msg.summary = unescape(auparse_find_field(au, "info"));
 				goto_record_type(au, type);
 
-				json_msg.attr = json_add_attr(json_msg.attr, "cs2Label=Operation cs2=", auparse_find_field(au, "operation"));
+				json_msg.details = json_add_attr(json_msg.details, "aacoperation", auparse_find_field(au, "operation"));
 				goto_record_type(au, type);
 
-				json_msg.attr = json_add_attr(json_msg.attr, "cs3Label=Profile cs3=", auparse_find_field(au, "profile"));
+				json_msg.details = json_add_attr(json_msg.details, "aaprofile", auparse_find_field(au, "profile"));
 				goto_record_type(au, type);
 
-				json_msg.attr = json_add_attr(json_msg.attr, "cs4Label=Command cs4=", auparse_find_field(au, "comm"));
+				json_msg.details = json_add_attr(json_msg.details, "aacommand", auparse_find_field(au, "comm"));
 				goto_record_type(au, type);
 
 				if (auparse_find_field(au, "parent"))
-					json_msg.attr = json_add_attr(json_msg.attr, "sproc=", get_proc_name(auparse_get_field_int(au)));
+					json_msg.details = json_add_attr(json_msg.details, "parentprocess", get_proc_name(auparse_get_field_int(au)));
 				goto_record_type(au, type);
 
 				if (auparse_find_field(au, "pid"))
-					json_msg.attr = json_add_attr(json_msg.attr, "dproc=", get_proc_name(auparse_get_field_int(au)));
+					json_msg.processname = get_proc_name(auparse_get_field_int(au));
 				goto_record_type(au, type);
 
-				add_extra_record(au, extra, "error");
+				json_msg.details = json_add_attr(json_msg.details, "aaerror", auparse_find_field(au, "error"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "name");
+				json_msg.details = json_add_attr(json_msg.details, "aaname", auparse_find_field(au, "name"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "srcname");
+				json_msg.details = json_add_attr(json_msg.details, "aasrcname", auparse_find_field(au, "srcname"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "flags");
+				json_msg.details = json_add_attr(json_msg.details, "aaflags", auparse_find_field(au, "flags"));
 				goto_record_type(au, type);
 				break;
 			case AUDIT_EXECVE:
@@ -445,119 +462,117 @@ static void handle_event(auparse_state_t *au,
 							len += sprintf(fullcmd+len, "%s", cmd);
 						else
 							len += sprintf(fullcmd+len, " %s", cmd);
-					} else
-							strncpy(fullcmdt, "Yes\0", 4);
+					}
 				}
-				json_msg.attr = json_add_attr(json_msg.attr, "cs2Label=Truncated cs2=", fullcmdt);
-				json_msg.attr = json_add_attr(json_msg.attr, "cs1Label=Command cs1=", fullcmd);
+				json_msg.details = json_add_attr(json_msg.details, "command", fullcmd);
 				break;
 			case AUDIT_CWD:
 				cwd = auparse_find_field(au, "cwd");
 				if (cwd) {
 					auparse_interpret_field(au);
-					add_extra_record(au, extra, "cwd");
+					json_msg.details = json_add_attr(json_msg.details, "cwd", auparse_find_field(au, "cwd"));
 				}
 				break;
 			case AUDIT_PATH:
-				json_msg.attr = json_add_attr(json_msg.attr, "fname=", auparse_find_field(au, "name"));
+				json_msg.details = json_add_attr(json_msg.details, "path", auparse_find_field(au, "name"));
 				goto_record_type(au, type);
 
-				add_extra_record(au, extra, "inode");
+				json_msg.details = json_add_attr(json_msg.details, "inode", auparse_find_field(au, "inode"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "dev");
+				json_msg.details = json_add_attr(json_msg.details, "dev", auparse_find_field(au, "dev"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "mode");
+				json_msg.details = json_add_attr(json_msg.details, "mode", auparse_find_field(au, "mode"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "ouid");
+				json_msg.details = json_add_attr(json_msg.details, "ouid", auparse_find_field(au, "ouid"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "ogid");
+				json_msg.details = json_add_attr(json_msg.details, "ogid", auparse_find_field(au, "ogid"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "rdev");
+				json_msg.details = json_add_attr(json_msg.details, "rdev", auparse_find_field(au, "rdev"));
 				goto_record_type(au, type);
 				break;
 			case AUDIT_SYSCALL:
 				syscall = auparse_find_field(au, "syscall");
 				if (!syscall) {
-					json_del_attrs(json_msg.attr);
+					json_del_attrs(json_msg.details);
 					return;
 				}
 				i = auparse_get_field_int(au);
 				sys = audit_syscall_to_name(i, machine);
 				if (!sys) {
-					syslog(LOG_INFO, "Unknown system call %u", i);
-					json_del_attrs(json_msg.attr);
+					syslog(LOG_INFO, "System call %u is not supported by %s", i, PROGRAM_NAME);
+					json_del_attrs(json_msg.details);
 					return;
 				}
 
 				if (!strncmp(sys, "write", 5) || !strncmp(sys, "open", 4) || !strncmp(sys, "unlink", 6)) {
 					havejson = i;
-					json_msg.msgname = "WRITE";
-					json_msg.msgdesc = "Write or append to file";
+					json_msg.category = "write";
+					json_msg.summary = "Write or append to file";
 				} else if (!strncmp(sys, "setxattr", 8)) {
 					havejson = i;
-					json_msg.msgname = "ATTR";
-					json_msg.msgdesc = "Change file attributes";
+					json_msg.category = "attribute";
+					json_msg.summary = "Change file attributes";
 				} else if (!strncmp(sys, "chmod", 5)) {
 					havejson = i;
-					json_msg.msgname = "CHMOD";
-					json_msg.msgdesc = "Change file mode";
+					json_msg.category = "chmod";
+					json_msg.summary = "Change file mode";
 				} else if (!strncmp(sys, "chown", 5)) {
 					havejson = i;
-					json_msg.msgname = "CHOWN";
-					json_msg.msgdesc = "Change file owner";
+					json_msg.category = "chown";
+					json_msg.summary = "Change file owner";
 				} else if (!strncmp(sys, "ptrace",  6)) {
 					havejson = i;
-					json_msg.msgname = "PTRACE";
-					json_msg.msgdesc = "Process tracing";
+					json_msg.category = "ptrace";
+					json_msg.summary = "Process tracing";
 				} else if (!strncmp(sys, "execve", 6)) {
 					havejson = i;
-					json_msg.msgname = "EXECVE";
-					json_msg.msgdesc = "Unix Exec";
+					json_msg.category = "execve";
+					json_msg.summary = "Execute new process";
 				} else {
-					syslog(LOG_INFO, "Unhandled system call %u %s", i, sys);
+					syslog(LOG_INFO, "System call %u %s is not supported by %s", i, sys, PROGRAM_NAME);
 				}
 
-				json_msg.attr = json_add_attr(json_msg.attr, "cs3Label=AuditKey cs3=", auparse_find_field(au, "key"));
+				json_msg.details = json_add_attr(json_msg.details, "auditkey", auparse_find_field(au, "key"));
 				goto_record_type(au, type);
 
 				if (auparse_find_field(au, "ppid"))
-					json_msg.attr = json_add_attr(json_msg.attr, "cs5Label=ParentProcess cs5=", get_proc_name(auparse_get_field_int(au)));
+					json_msg.details = json_add_attr(json_msg.details, "parentprocess", get_proc_name(auparse_get_field_int(au)));
 				goto_record_type(au, type);
 
 				if (auparse_find_field(au, "auid")) {
-					json_msg.attr = json_add_attr(json_msg.attr, "suser=", get_username(auparse_get_field_int(au)));
-					json_msg.attr = json_add_attr(json_msg.attr, "cn1Label=auid cn1=",  auparse_get_field_str(au));
+					json_msg.details = json_add_attr(json_msg.details, "originaluser", get_username(auparse_get_field_int(au)));
+					json_msg.details = json_add_attr(json_msg.details, "originaluid",  auparse_get_field_str(au));
 				}
 				goto_record_type(au, type);
 
 				if (auparse_find_field(au, "uid")) {
-					json_msg.attr = json_add_attr(json_msg.attr, "duser=", get_username(auparse_get_field_int(au)));
-					json_msg.attr = json_add_attr(json_msg.attr, "duid=", auparse_get_field_str(au));
+					json_msg.details = json_add_attr(json_msg.details, "user", get_username(auparse_get_field_int(au)));
+					json_msg.details = json_add_attr(json_msg.details, "uid", auparse_get_field_str(au));
 				}
 				goto_record_type(au, type);
 
-				json_msg.attr = json_add_attr(json_msg.attr, "cs4Label=TTY cs4=", auparse_find_field(au, "tty"));
+				json_msg.details = json_add_attr(json_msg.details, "tty", auparse_find_field(au, "tty"));
 				goto_record_type(au, type);
-				json_msg.attr = json_add_attr(json_msg.attr, "dproc=", auparse_find_field(au, "exe"));
+				json_msg.details = json_add_attr(json_msg.details, "process", auparse_find_field(au, "exe"));
 				goto_record_type(au, type);
 
-				add_extra_record(au, extra, "pid");
+				json_msg.details = json_add_attr(json_msg.details, "pid", auparse_find_field(au, "pid"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "gid");
+				json_msg.details = json_add_attr(json_msg.details, "gid", auparse_find_field(au, "gid"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "euid");
+				json_msg.details = json_add_attr(json_msg.details, "euid", auparse_find_field(au, "euid"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "suid");
+				json_msg.details = json_add_attr(json_msg.details, "suid", auparse_find_field(au, "suid"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "fsuid");
+				json_msg.details = json_add_attr(json_msg.details, "fsuid", auparse_find_field(au, "fsuid"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "egid");
+				json_msg.details = json_add_attr(json_msg.details, "egid", auparse_find_field(au, "egid"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "sgid");
+				json_msg.details = json_add_attr(json_msg.details, "sgid", auparse_find_field(au, "sgid"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "fsgid");
+				json_msg.details = json_add_attr(json_msg.details, "fsgid", auparse_find_field(au, "fsgid"));
 				goto_record_type(au, type);
-				add_extra_record(au, extra, "ses");
+				json_msg.details = json_add_attr(json_msg.details, "session", auparse_find_field(au, "ses"));
 				goto_record_type(au, type);
 				break;
 			default:
@@ -567,16 +582,11 @@ static void handle_event(auparse_state_t *au,
 	}
 
 	if (!havejson) {
-		json_del_attrs(json_msg.attr);
+		json_del_attrs(json_msg.details);
 		return;
 	}
 
-	if (strlen(extra) >= MAX_ARG_LEN) {
-		extra[MAX_ARG_LEN] = '\0';
-		json_msg.attr = json_add_attr(json_msg.attr, "cs6Label=MsgTruncated cs6=", "Yes");
-	}
-	json_msg.attr = json_add_attr(json_msg.attr, "msg=", extra);
-	json_msg.attr = json_add_attr(json_msg.attr, "dhost=", hostname);
-	//This also frees json_msg.attr
-	syslog_json_msg(json_msg);
+	//This also frees json_msg.details
+	if (!syslog_json_msg(json_msg))
+		syslog(LOG_WARNING, "failed to send json message");
 }
