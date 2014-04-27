@@ -35,13 +35,13 @@ PREFIX	:= /usr
 all: audisp-json
 
 audisp-json: json-config.o audisp-json.o
-	${LIBTOOL} --tag=CC --mode=link gcc ${CFLAGS} ${LDFLAGS} ${LIBS} ${DEFINES} -o audisp-json json-config.o audisp-json.o
+	${LIBTOOL} --tag=CC --mode=link gcc ${CFLAGS} ${LDFLAGS} ${LIBS} -o audisp-json json-config.o audisp-json.o
 
 json-config.o: json-config.c
 	${GCC} -I. ${CFLAGS} ${LIBS} -c -o json-config.o json-config.c
 
 audisp-json.o: audisp-json.c
-	${GCC} -I. ${CFLAGS} ${LIBS} -c -o audisp-json.o audisp-json.c
+	${GCC} -I. ${CFLAGS} ${LIBS} ${DEFINES} -c -o audisp-json.o audisp-json.c
 
 install: audisp-json au-json.conf audisp-json.conf
 	${INSTALL} -D -m 0644 au-json.conf ${DESTDIR}/${PREFIX}/etc/audisp/plugins.d/au-json.conf

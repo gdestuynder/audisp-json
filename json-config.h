@@ -1,6 +1,6 @@
 /* remote-config.h
  * Copyright 2008 Red Hat Inc., Durham, North Carolina.
- * Copyright 2012 Mozilla Corporation
+ * Copyright 2014 Mozilla Corporation
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -29,6 +29,8 @@
 typedef struct json_conf
 {
 	const char *mozdef_url;
+	int ssl_verify;
+	int curl_verbose;
 } json_conf_t;
 
 void clear_config(json_conf_t *config);

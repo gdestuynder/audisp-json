@@ -1,5 +1,5 @@
 /* json-config.c -- 
- * Copyright (c) 2012 Mozilla Corporation.
+ * Copyright (c) 2014 Mozilla Corporation.
  * Copyright 2008 Red Hat Inc., Durham, North Carolina.
  * All Rights Reserved.
  *
@@ -59,12 +59,16 @@ static int nv_split(char *buf, struct nv_pair *nv);
 static const struct kw_pair *kw_lookup(const char *val);
 static int server_parser(struct nv_pair *nv, int line, 
 		json_conf_t *config);
-static int port_parser(struct nv_pair *nv, int line, 
+static int ssl_parser(struct nv_pair *nv, int line, 
+		json_conf_t *config);
+static int curl_parser(struct nv_pair *nv, int line, 
 		json_conf_t *config);
 
 static const struct kw_pair keywords[] =
 {
-	{"mozdef_url",    server_parser,           0 },
+	{"mozdef_url",	server_parser,	0},
+	{"ssl_verify",	ssl_parser,		0},
+	{"curl_verbose",curl_parser,	0},
 };
 
 /*
@@ -73,6 +77,7 @@ static const struct kw_pair keywords[] =
 void clear_config(json_conf_t *config)
 {
 	config->mozdef_url = NULL;
+	config->ssl_verify = 1;
 }
 
 int load_config(json_conf_t *config, const char *file)
@@ -94,8 +99,8 @@ int load_config(json_conf_t *config, const char *file)
 			return 1;
 		}
 		syslog(LOG_WARNING,
-			"Config file %s doesn't exist, skipping", file);
-		return 0;
+			"Config file %s doesn't exist", file);
+		return 1;
 	}
 	fd = rc;
 
@@ -105,12 +110,6 @@ int load_config(json_conf_t *config, const char *file)
 	if (fstat(fd, &st) < 0) {
 		syslog(LOG_ERR, "Error fstat'ing config file (%s)", 
 			strerror(errno));
-		close(fd);
-		return 1;
-	}
-	if (st.st_uid != 0) {
-		syslog(LOG_ERR, "Error - %s isn't owned by root", 
-			file);
 		close(fd);
 		return 1;
 	}
@@ -276,6 +275,32 @@ static int server_parser(struct nv_pair *nv, int line,
 		config->mozdef_url = strdup(nv->value);
 	else
 		config->mozdef_url = NULL;
+	return 0;
+}
+
+static int ssl_parser(struct nv_pair *nv, int line,
+		json_conf_t *config)
+{
+	config->ssl_verify = 1;
+	if (nv->value) {
+		if (strncasecmp(nv->value, "no", 2) == 0) {
+			config->ssl_verify = 0;
+		}
+	}
+
+	return 0;
+}
+
+static int curl_parser(struct nv_pair *nv, int line,
+		json_conf_t *config)
+{
+	config->curl_verbose = 1;
+	if (nv->value) {
+		if (strncasecmp(nv->value, "no", 2) == 0) {
+			config->curl_verbose = 0;
+		}
+	}
+
 	return 0;
 }
 

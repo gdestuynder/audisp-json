@@ -7,8 +7,11 @@ Audisp-json
 This program is a plugin for Linux Audit user space programs available at <http://people.redhat.com/sgrubb/audit/>.
 It uses the audisp multiplexer.
 
-Audisp-json correlates messages coming from the kernel's audit (and through audisp) into a single JSON message through syslog.
+Audisp-json correlates messages coming from the kernel's audit (and through audisp) into a single JSON message that is
+sent directly to a log server (it doesn't use syslog).
 The JSON format used is MozDef message format.
+
+Regular audit log messages and audisp-json error, info messages still use syslog.
 
 Building
 --------
@@ -16,6 +19,7 @@ Building
 Required dependencies:
 - Audit (2.0+)
 - libtool
+- libcurl
 
 For package building:
 - FPM
@@ -70,11 +74,13 @@ Example for syslog-ng
     destination d_logserver { udp("<SYSLOG_SERVER_IP_HERE>" port(514)); };
     log{ source(s_syslog); filter(f_auditd); destination(d_logserver); };
     # If you want to "not log" auditd messages, negate the same filter to your other log items
-    
+
 Message handling
 ----------------
 
 Syscalls are interpreted by audisp-json and transformed into a MozDef JSON message.
 This means, for example, all execve() and related calls will be aggregated into a message of type EXECVE.
+
+.. note: MozDef messages are not sent to syslog. They're sent to MozDef directly.
 
 Supported messages are listed in the document messages_format.rst
