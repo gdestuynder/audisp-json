@@ -84,3 +84,12 @@ This means, for example, all execve() and related calls will be aggregated into 
 .. note: MozDef messages are not sent to syslog. They're sent to MozDef directly.
 
 Supported messages are listed in the document messages_format.rst
+
+Configuration file
+==================
+
+The audisp-json.conf file has 3 options:
+
+:mozdef_url: Any server supporting JSON MozDef messages
+:ssl_verify: Yes or no. Only use no for testing purposes.
+:curl_verbose: Enables curl verbose mode for debugging. start audisp-json in the foreground to see messages.
