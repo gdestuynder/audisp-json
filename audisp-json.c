@@ -1,4 +1,5 @@
-/* audisp-json.c --
+/* vim: ts=4:sw=4:noexpandtab
+ * audisp-json.c --
  * Copyright (c) 2014 Mozilla Corporation.
  * Portions Copyright 2008 Red Hat Inc., Durham, North Carolina.
  * All Rights Reserved.
