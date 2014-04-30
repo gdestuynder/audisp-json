@@ -135,7 +135,7 @@ char *ring_read(ring_buf_msg_t *rb)
 {
 	char *val;
 	val = rb->data[rb->start].val;
-    rb->start = (rb->start + 1) % rb->size;
+	rb->start = (rb->start + 1) % rb->size;
 	return val;
 }
 
