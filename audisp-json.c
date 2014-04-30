@@ -434,7 +434,7 @@ char *get_username(int uid)
 
 	bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
 	if (bufsize == -1)
-			bufsize = 16384;
+		bufsize = 16384;
 	buf = (char *)alloca(bufsize);
 
 	if (uid == -1) {
