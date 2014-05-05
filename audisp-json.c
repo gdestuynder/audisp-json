@@ -178,7 +178,7 @@ void curl_perform(void)
 
 		ret = curl_multi_timeout(multi_h, &curl_timeout);
 		if (ret != CURLM_OK) {
-			syslog(LOG_ERR, curl_multi_strerror(ret));
+			syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
 		}
 		timeout.tv_sec = 1;
 		timeout.tv_usec = 0;
@@ -191,7 +191,7 @@ void curl_perform(void)
 		}
 		ret = curl_multi_fdset(multi_h, &r, &w, &e, &maxfd);
 		if (ret != CURLM_OK) {
-			syslog(LOG_ERR, curl_multi_strerror(ret));
+			syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
 			return;
 		}
 
@@ -199,13 +199,13 @@ void curl_perform(void)
 
 		switch(rc) {
 			case -1:
-				syslog(LOG_ERR, strerror(errno));
+				syslog(LOG_ERR, "%s", strerror(errno));
 				break;
 			case 0:
 			default:
 				ret = curl_multi_perform(multi_h, &curl_nr_h);
 				if (ret != CURLM_OK) {
-					syslog(LOG_ERR, curl_multi_strerror(ret));
+					syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
 				}
 				break;
 		}
@@ -329,7 +329,7 @@ int main(int argc, char *argv[])
 	curl_nr_h = 1;
 	ret = curl_multi_add_handle(multi_h, easy_h);
 	if (ret != CURLM_OK) {
-		syslog(LOG_ERR, curl_multi_strerror(ret));
+		syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
 		return -1;
 	}
 

@@ -23,7 +23,7 @@ VERSION	:= 1.4
 CFLAGS	:= -fPIE -DPIE -g -O2 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all -D_FORTIFY_SOURCE=2
 LDFLAGS	:= -pie -Wl,-z,relro
 LIBS	:= -lauparse -laudit `curl-config --libs`
-DEFINES	:= -DPROGRAM_VERSION\=${VERSION}
+DEFINES	:= -DPROGRAM_VERSION\=\"${VERSION}\"
 
 GCC		:= gcc
 LIBTOOL	:= libtool
