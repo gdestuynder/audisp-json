@@ -358,7 +358,9 @@ int main(int argc, char *argv[])
 
 	auparse_destroy(au);
 	curl_global_cleanup();
+	free(msg_list.data);
 	free_config(&config);
+	free(hostname);
 	syslog(LOG_INFO, "%s unloaded\n", PROGRAM_NAME);
 	closelog();
 
@@ -477,10 +479,11 @@ void syslog_json_msg(struct json_msg_type json_msg)
 	attr_t *head = json_msg.details;
 	attr_t *prev;
 	char *msg;
+	int len;
 
 	msg = malloc((size_t)MAX_JSON_MSG_SIZE);
 
-	snprintf(msg, MAX_JSON_MSG_SIZE,
+	len = snprintf(msg, MAX_JSON_MSG_SIZE,
 "{\n\
 	\"category\": \"%s\",\n\
 	\"summary\": \"%s\",\n\
@@ -499,17 +502,17 @@ void syslog_json_msg(struct json_msg_type json_msg)
 		json_msg.processname, json_msg.timestamp, PROGRAM_NAME, PROGRAM_VERSION);
 
 	while (head) {
-			snprintf(msg+strlen(msg), MAX_JSON_MSG_SIZE, "\n%s,", head->val);
+			len += snprintf(msg+len, MAX_JSON_MSG_SIZE, "\n%s,", head->val);
 			prev = head;
 			head = head->next;
 			free(prev);
 
 			if (head == NULL) {
-				msg[strlen(msg)-1] = '\n';
+				msg[len-1] = '\n';
 			}
 	}
-	snprintf(msg+strlen(msg), MAX_JSON_MSG_SIZE, "	}\n}");
-	msg[MAX_JSON_MSG_SIZE] = '\0';
+	len += snprintf(msg+len, MAX_JSON_MSG_SIZE, "	}\n}");
+	msg[MAX_JSON_MSG_SIZE-1] = '\0';
 
 	ring_add(&msg_list, msg);
 // if you wanna see the json msg...
@@ -758,6 +761,7 @@ static void handle_event(auparse_state_t *au,
 	 */
 	if (curl_nr_h <= 0) {
 		char *msg = ring_read(&msg_list);
+
 		curl_multi_remove_handle(multi_h, easy_h);
 		prepare_curl_handle();
 		curl_easy_setopt(easy_h, CURLOPT_POSTFIELDS, msg);
