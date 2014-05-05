@@ -216,10 +216,12 @@ void curl_perform(void)
 		if (msg->msg == CURLMSG_DONE) {
 			if (!ring_empty(&msg_list)) {
 				char *msg = ring_read(&msg_list);
+				curl_multi_remove_handle(multi_h, easy_h);
 				prepare_curl_handle();
 				curl_easy_setopt(easy_h, CURLOPT_POSTFIELDS, msg);
 				curl_easy_setopt(easy_h, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)strlen(msg));
 				curl_nr_h++;
+				curl_multi_add_handle(multi_h, easy_h);
 			}
 		}
 	}
@@ -324,6 +326,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 	prepare_curl_handle();
+	curl_nr_h = 1;
 	ret = curl_multi_add_handle(multi_h, easy_h);
 	if (ret != CURLM_OK) {
 		syslog(LOG_ERR, curl_multi_strerror(ret));
@@ -338,10 +341,9 @@ int main(int argc, char *argv[])
 			reload_config();
 
 		while (fgets_unlocked(tmp, MAX_AUDIT_MESSAGE_LENGTH, stdin) &&
-							hup==0 && stop==0)
+							hup==0 && stop==0) {
 			auparse_feed(au, tmp, strnlen(tmp, MAX_AUDIT_MESSAGE_LENGTH));
-
-		curl_perform();
+		}
 
 		if (feof(stdin))
 			break;
@@ -384,6 +386,9 @@ static int goto_record_type(auparse_state_t *au, int type)
 /* Removes quotes */
 char *unescape(const char *in)
 {
+	if (in == NULL)
+		return "(null)";
+
 	char *dst = (char *)in;
 	char *s = dst;
 	char *src = (char *)in;
@@ -401,11 +406,6 @@ char *unescape(const char *in)
 attr_t *json_add_attr(attr_t *list, const char *st, const char *val)
 {
 	attr_t *new;
-
-	if (val == NULL)
-			return list;
-	if (strstr(val, "(null)") != NULL)
-			return list;
 
 	new = malloc(sizeof(attr_t));
 	snprintf(new->val, MAX_ATTR_SIZE, "\t\t\"%s\": \"%s\"", st, unescape(val));
@@ -454,15 +454,20 @@ char *get_username(int uid)
 char *get_proc_name(int pid)
 {
 	char p[1024];
+	int ret;
 	static char proc[64];
 	FILE *fp;
 	snprintf(p, 512, "/proc/%d/status", pid);
 	fp = fopen(p, "r");
 	if (fp) {
-		fscanf(fp, "Name: %63s", proc);
+		ret = fscanf(fp, "Name: %63s", proc);
 		fclose(fp);
 	} else
 		return NULL;
+
+	if (ret == 0)
+		return NULL;
+
 	return proc;
 }
 
