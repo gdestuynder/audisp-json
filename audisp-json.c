@@ -215,11 +215,12 @@ void curl_perform(void)
 	while (msg = curl_multi_info_read(multi_h, &msgs_left)) {
 		if (msg->msg == CURLMSG_DONE) {
 			if (!ring_empty(&msg_list)) {
-				char *msg = ring_read(&msg_list);
+				char *new_msg = ring_read(&msg_list);
 				curl_multi_remove_handle(multi_h, easy_h);
 				prepare_curl_handle();
-				curl_easy_setopt(easy_h, CURLOPT_POSTFIELDS, msg);
-				curl_easy_setopt(easy_h, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)strlen(msg));
+				curl_easy_setopt(easy_h, CURLOPT_POSTFIELDS, new_msg);
+				curl_easy_setopt(easy_h, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)strlen(new_msg));
+				free(new_msg);
 				curl_nr_h++;
 				curl_multi_add_handle(multi_h, easy_h);
 			}
@@ -477,7 +478,7 @@ void syslog_json_msg(struct json_msg_type json_msg)
 	attr_t *prev;
 	char *msg;
 
-	msg = calloc(1, (size_t)MAX_JSON_MSG_SIZE);
+	msg = malloc((size_t)MAX_JSON_MSG_SIZE);
 
 	snprintf(msg, MAX_JSON_MSG_SIZE,
 "{\n\
@@ -761,6 +762,7 @@ static void handle_event(auparse_state_t *au,
 		prepare_curl_handle();
 		curl_easy_setopt(easy_h, CURLOPT_POSTFIELDS, msg);
 		curl_easy_setopt(easy_h, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)strlen(msg));
+		free(msg);
 		curl_nr_h++;
 		curl_multi_add_handle(multi_h, easy_h);
 	}
