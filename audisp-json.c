@@ -516,7 +516,7 @@ void syslog_json_msg(struct json_msg_type json_msg)
 
 	ring_add(&msg_list, msg);
 // if you wanna see the json msg...
-//	printf("%s\n", msg);
+	printf("%s\n", msg);
 }
 
 /* The main event handling, parsing, collerating function */
@@ -605,6 +605,7 @@ static void handle_event(auparse_state_t *au,
 				goto_record_type(au, type);
 				break;
 			case AUDIT_EXECVE:
+				havejson = 1;
 				argc = auparse_find_field(au, "argc");
 				if (argc)
 					argcount = auparse_get_field_int(au);
@@ -668,27 +669,26 @@ static void handle_event(auparse_state_t *au,
 				}
 
 				if (!strncmp(sys, "write", 5) || !strncmp(sys, "open", 4) || !strncmp(sys, "unlink", 6)) {
-					havejson = i;
+					havejson = 1;
 					json_msg.category = "write";
 					json_msg.summary = "Write or append to file";
 				} else if (!strncmp(sys, "setxattr", 8)) {
-					havejson = i;
+					havejson = 1;
 					json_msg.category = "attribute";
 					json_msg.summary = "Change file attributes";
 				} else if (!strncmp(sys, "chmod", 5)) {
-					havejson = i;
+					havejson = 1;
 					json_msg.category = "chmod";
 					json_msg.summary = "Change file mode";
 				} else if (!strncmp(sys, "chown", 5)) {
-					havejson = i;
+					havejson = 1;
 					json_msg.category = "chown";
 					json_msg.summary = "Change file owner";
 				} else if (!strncmp(sys, "ptrace",  6)) {
-					havejson = i;
+					havejson = 1;
 					json_msg.category = "ptrace";
 					json_msg.summary = "Process tracing";
 				} else if (!strncmp(sys, "execve", 6)) {
-					havejson = i;
 					json_msg.category = "execve";
 					json_msg.summary = "Execute new process";
 				} else {
