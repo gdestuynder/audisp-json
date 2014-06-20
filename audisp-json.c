@@ -265,6 +265,7 @@ unsigned int strstok(char *in, char c)
 int main(int argc, char *argv[])
 {
 	char tmp[MAX_AUDIT_MESSAGE_LENGTH];
+	int len=0;
 	struct sigaction sa;
 	struct hostent *ht;
 	char nodename[64];
@@ -296,7 +297,7 @@ int main(int argc, char *argv[])
 		if (load_config(&config, CONFIG_FILE_LOCAL))
 			return 1;
 
-	au = auparse_init(AUSOURCE_FEED, 0);
+	au = auparse_init(AUSOURCE_FEED, NULL);
 	if (au == NULL) {
 		syslog(LOG_ERR, "could not initialize auparse");
 		return -1;
@@ -335,15 +336,19 @@ int main(int argc, char *argv[])
 	}
 
 	auparse_add_callback(au, handle_event, NULL, NULL);
-
 	syslog(LOG_INFO, "%s loaded\n", PROGRAM_NAME);
+
 	do {
 		if (hup)
 			reload_config();
 
-		while (fgets_unlocked(tmp, MAX_AUDIT_MESSAGE_LENGTH, stdin) &&
-							hup==0 && stop==0) {
-			auparse_feed(au, tmp, strnlen(tmp, MAX_AUDIT_MESSAGE_LENGTH));
+		/* Note: auparse matches on the complete record field in order to associate all matching records into one
+		 * message. This means both the timestamp and the record serial (UUID) must match. If for some reason the kernel
+		 * sends various records for the same event at a different time, the messages will be processed as 2 separate
+		 * messages even thus the record serial matches.
+		 */
+		while ((len = fread_unlocked(tmp, 1, MAX_AUDIT_MESSAGE_LENGTH, stdin))) {
+			auparse_feed(au, tmp, len);
 		}
 
 		if (feof(stdin))
@@ -548,15 +553,20 @@ static void handle_event(auparse_state_t *au,
 	int argcount, i;
 	int havejson = 0;
 
-	if (cb_event_type != AUPARSE_CB_EVENT_READY)
+	if (cb_event_type != AUPARSE_CB_EVENT_READY) {
+		printf("try again later\n");
 		return;
+	}
 
 	json_msg.timestamp = (char *)alloca(64);
 
 	while (auparse_goto_record_num(au, num) > 0) {
 		type = auparse_get_type(au);
 		rc = 0;
-		auparse_first_field(au);
+
+		if (!auparse_first_field(au))
+			continue;
+
 		t = auparse_get_time(au);
 		tmp = localtime(&t);
 		strftime(json_msg.timestamp, 64, "%FT%T%z", tmp);
@@ -605,7 +615,6 @@ static void handle_event(auparse_state_t *au,
 				goto_record_type(au, type);
 				break;
 			case AUDIT_EXECVE:
-				havejson = 1;
 				argc = auparse_find_field(au, "argc");
 				if (argc)
 					argcount = auparse_get_field_int(au);
@@ -689,6 +698,7 @@ static void handle_event(auparse_state_t *au,
 					json_msg.category = "ptrace";
 					json_msg.summary = "Process tracing";
 				} else if (!strncmp(sys, "execve", 6)) {
+					havejson = 1;
 					json_msg.category = "execve";
 					json_msg.summary = "Execute new process";
 				} else {
