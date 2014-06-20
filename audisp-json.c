@@ -51,6 +51,7 @@
 #define RING_BUF_LEN 512
 #define MAX_JSON_MSG_SIZE 4096
 #define MAX_ARG_LEN 2048
+#define MAX_SUMMARY_LEN 256
 #define MAX_ATTR_SIZE 1023
 #ifndef PROGRAM_VERSION
 #define PROGRAM_VERSION "1"
@@ -516,12 +517,14 @@ void syslog_json_msg(struct json_msg_type json_msg)
 				msg[len-1] = '\n';
 			}
 	}
+
 	len += snprintf(msg+len, MAX_JSON_MSG_SIZE, "	}\n}");
 	msg[MAX_JSON_MSG_SIZE-1] = '\0';
 
 	ring_add(&msg_list, msg);
-// if you wanna see the json msg...
+#ifdef DEBUG
 	printf("%s\n", msg);
+#endif
 }
 
 /* The main event handling, parsing, collerating function */
@@ -559,6 +562,7 @@ static void handle_event(auparse_state_t *au,
 	}
 
 	json_msg.timestamp = (char *)alloca(64);
+	json_msg.summary = (char *)alloca(MAX_SUMMARY_LEN);
 
 	while (auparse_goto_record_num(au, num) > 0) {
 		type = auparse_get_type(au);
@@ -680,27 +684,43 @@ static void handle_event(auparse_state_t *au,
 				if (!strncmp(sys, "write", 5) || !strncmp(sys, "open", 4) || !strncmp(sys, "unlink", 6)) {
 					havejson = 1;
 					json_msg.category = "write";
-					json_msg.summary = "Write or append to file";
+					snprintf(json_msg.summary,
+								MAX_SUMMARY_LEN,
+								"Write or append to file");
 				} else if (!strncmp(sys, "setxattr", 8)) {
 					havejson = 1;
 					json_msg.category = "attribute";
-					json_msg.summary = "Change file attributes";
+					snprintf(json_msg.summary,
+								MAX_SUMMARY_LEN,
+								"Change file attributes");
 				} else if (!strncmp(sys, "chmod", 5)) {
 					havejson = 1;
 					json_msg.category = "chmod";
-					json_msg.summary = "Change file mode";
+					snprintf(json_msg.summary,
+								MAX_SUMMARY_LEN,
+								"Change file mode");
 				} else if (!strncmp(sys, "chown", 5)) {
 					havejson = 1;
 					json_msg.category = "chown";
-					json_msg.summary = "Change file owner";
+					snprintf(json_msg.summary,
+								MAX_SUMMARY_LEN,
+								"Change file owner");
 				} else if (!strncmp(sys, "ptrace",  6)) {
 					havejson = 1;
 					json_msg.category = "ptrace";
-					json_msg.summary = "Process tracing";
+					snprintf(json_msg.summary,
+								MAX_SUMMARY_LEN,
+								"Process tracing");
+
 				} else if (!strncmp(sys, "execve", 6)) {
 					havejson = 1;
 					json_msg.category = "execve";
-					json_msg.summary = "Execute new process";
+					auparse_find_field(au, "comm");
+					snprintf(json_msg.summary,
+								MAX_SUMMARY_LEN,
+								"Execute new process: %s",
+								unescape(auparse_get_field_str(au)));
+
 				} else {
 					syslog(LOG_INFO, "System call %u %s is not supported by %s", i, sys, PROGRAM_NAME);
 				}

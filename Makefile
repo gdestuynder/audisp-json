@@ -19,8 +19,13 @@
 #   Guillaume Destuynder <gdestuynder@mozilla.com>
 
 VERSION	:= 1.4
-
-CFLAGS	:= -fPIE -DPIE -g -O2 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all -D_FORTIFY_SOURCE=2
+DEBUG	:= 0
+ifneq ($(DEBUG),0)
+	DEBUGF	:= -DDEBUG
+	CFLAGS	:= -fPIE -DPIE -g -O0 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all 
+else
+	CFLAGS	:= -fPIE -DPIE -g -O2 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all -D_FORTIFY_SOURCE=2
+endif
 LDFLAGS	:= -pie -Wl,-z,relro
 LIBS	:= -lauparse -laudit `curl-config --libs`
 DEFINES	:= -DPROGRAM_VERSION\=\"${VERSION}\"
@@ -41,7 +46,7 @@ json-config.o: json-config.c
 	${GCC} -I. ${CFLAGS} ${LIBS} -c -o json-config.o json-config.c
 
 audisp-json.o: audisp-json.c
-	${GCC} -I. ${CFLAGS} ${LIBS} ${DEFINES} -c -o audisp-json.o audisp-json.c
+	${GCC} -I. ${CFLAGS} ${DEBUGF} ${LIBS} ${DEFINES} -c -o audisp-json.o audisp-json.c
 
 install: audisp-json au-json.conf audisp-json.conf
 	${INSTALL} -D -m 0644 au-json.conf ${DESTDIR}/${PREFIX}/etc/audisp/plugins.d/au-json.conf
