@@ -58,7 +58,6 @@ Format example
                 "inode": 283892,
                 "parentprocess": "sudo",
                 "process": "/bin/cat",
-                "filename": "(null)",
                 "auditkey": "exe",
                 "tty": "/dev/pts/0"
             },
@@ -72,6 +71,41 @@ Format example
                 ],
             "timestamp": "2014-03-18T23:20:31.013344+00:00"
     }
+
+Fields reference
+----------------
+.. note:: Integer fields are of type uint32_t (i.e. bigger then regular signed int).
+
+.. note:: See also 'man 8 auditctl' and/or https://access.redhat.com/site/documentation/en-US/Red_Hat_Enterprise_Linux/6/html/Security_Guide/sec-Understanding_Audit_Log_Files.html
+
+:category: Type of message (such as execve, write, chmod, etc.).
+:processid: PID of the process generating the messages (audisp-json's PID)
+:processname: Process name of the process generating the messages (audisp-json).
+:hostname: System FQDN as seen get gethostbyname().
+:severity: Syslog-style severity level.
+:summary: Human readable summary of the message.
+:tags: Various tags to indicate the audisp-json plugin version.
+:timestamp: UTC timestamp, or with timezone set.
+:details.uid,gid: User/group id who started the program.
+:details.username: Human readable alias of the uid.
+:details.euid: Effective user/group id the program is running as.
+:details.fsuid,fsgid: User/group id of the owner of the running program itself, on the filesystem.
+:details.ouid,ouid: Owner user/group id on the filesystem.
+:details.suid,sgid: Saved user/group id - used when changing uid sets within the program, but a uid/gid has been saved (i.e. the program can revert to the suid if it wants to).
+:details.auid: Auditd user id - the original user who logged in (always the same even after setuid - this is generally set by PAM).
+:details.auditedusername: Human readable alias of the auid.
+:details.rdev: Recorded device identifier (MAJOR:MINOR numbers) 
+:details.rdev: Recorded device identifier for special files.
+:details.mode: File mode on the filesystem (full numeral mode, such as 0100600 - that would be 0600 "short mode" or u+rw or -rw------).
+:details.sessionid: Kernel session identifier for the user running the program. It's set at login.
+:details.tty: If any TTY is attached, it's there - used by interactive shells usually (such as /dev/pts/0).
+:details.auditkey: Custom identifier set by the person setting audit rules on the system.
+:details.process: Program involved's full path.
+:details.pid: PID of the program involved.
+:details.inode: Node identifier on the filesystem for the program.
+:details.cwd: Current working directory of the program.
+:details.parentprocess: Name of the parent process which has spawned details.process.
+:details.ppid: PID of the parent process.
 
 Implemented message categories
 ------------------------------
