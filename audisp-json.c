@@ -522,7 +522,7 @@ void syslog_json_msg(struct json_msg_type json_msg)
 	],\n\
 	\"details\": {",
 		json_msg.category, json_msg.summary, json_msg.severity, json_msg.hostname, json_msg.processid,
-		json_msg.processname, json_msg.timestamp, PROGRAM_NAME, PROGRAM_VERSION);
+		PROGRAM_NAME, json_msg.timestamp, PROGRAM_NAME, PROGRAM_VERSION);
 
 	while (head) {
 			len += snprintf(msg+len, MAX_JSON_MSG_SIZE, "\n%s,", head->val);
@@ -623,7 +623,8 @@ static void handle_event(auparse_state_t *au,
 				goto_record_type(au, type);
 
 				if (auparse_find_field(au, "pid"))
-					json_msg.processname = get_proc_name(auparse_get_field_int(au));
+					json_msg.details = json_add_attr(json_msg.details, "processname",
+														get_proc_name(auparse_get_field_int(au)));
 				goto_record_type(au, type);
 
 				json_msg.details = json_add_attr(json_msg.details, "aaerror", auparse_find_field(au, "error"));
@@ -698,10 +699,8 @@ static void handle_event(auparse_state_t *au,
 					return;
 				}
 
-				if (auparse_find_field(au, "comm")) {
-					json_msg.processname = auparse_get_field_str(au);
-					goto_record_type(au, type);
-				}
+				json_msg.details = json_add_attr(json_msg.details, "processname", auparse_find_field(au, "comm"));
+				goto_record_type(au, type);
 
 				if (!strncmp(sys, "write", 5) || !strncmp(sys, "open", 4) || !strncmp(sys, "unlink", 6)) {
 					havejson = 1;
