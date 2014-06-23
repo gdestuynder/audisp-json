@@ -43,10 +43,11 @@
 
 #define CONFIG_FILE "/etc/audisp/audisp-json.conf"
 #define CONFIG_FILE_LOCAL "audisp-json.conf"
-// after this amount of time for any response (connect, http reply, etc.) just give up
-// and lose messages.
-// don't set this too high as new curl handles will be created and consume memory while 
-// waiting for the connection to work again.
+/* after this amount of time for any response (connect, http reply, etc.) just give up
+ * and lose messages.
+ * don't set this too high as new curl handles will be created and consume memory while 
+ * waiting for the connection to work again.
+ */
 #define MAX_CURL_GLOBAL_TIMEOUT 5000L
 #define RING_BUF_LEN 512
 #define MAX_JSON_MSG_SIZE 4096
@@ -59,7 +60,7 @@
 #ifndef PROGRAME_NAME
 #define PROGRAM_NAME "audisp-json"
 #endif
-/* transform macro int and str value to ... str */
+/* transform macro int and str value to ... str - needed for defining USER_AGENT ;)*/
 #define _STR(x) #x
 #define STR(x) _STR(x)
 #define USER_AGENT PROGRAM_NAME"/"STR(PROGRAM_VERSION)
@@ -105,7 +106,11 @@ struct json_msg_type {
 	struct	ll *details;
 };
 
-/* ring buffer functions */
+/* ring buffer functions:
+ * we've to keep the data we send to MozDef around for cURL.
+ * in case we get overloaded with messages, we don't want to DOS ourselves so we're limited to the size of the ring
+ * buffer.
+ */
 
 int ring_full(ring_buf_msg_t *rb)
 {
@@ -177,6 +182,7 @@ void curl_perform(void)
 		FD_ZERO(&w);
 		FD_ZERO(&e);
 
+		/* With cURL you get the timeout you have to wait back from the library, so we use that for the select() call */
 		ret = curl_multi_timeout(multi_h, &curl_timeout);
 		if (ret != CURLM_OK) {
 			syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
@@ -339,6 +345,9 @@ int main(int argc, char *argv[])
 	auparse_add_callback(au, handle_event, NULL, NULL);
 	syslog(LOG_INFO, "%s loaded\n", PROGRAM_NAME);
 
+	/* At this point we're initialized so we'll read stdin until closed and feed the data to auparse, which in turn will
+	 * call our callback (handle_event) every time it finds a new complete message to parse.
+	 */
 	do {
 		if (hup)
 			reload_config();
@@ -392,7 +401,9 @@ static int goto_record_type(auparse_state_t *au, int type)
 	return -1;
 }
 
-/* Removes quotes */
+/* Removes quotes
+ * @const char *in: if null, we'll return a char array value of "(null)".
+ */
 char *unescape(const char *in)
 {
 	if (in == NULL)
@@ -411,7 +422,12 @@ char *unescape(const char *in)
 	return s;
 }
 
-/* Add a field to the json msg's details={} */
+/* Add a field to the json msg's details={}
+ * @attr_t *list: the attribute list to extend
+ * @const char *st: the attribute name to add
+ * @const char *val: the attribut value - if NULL, we'll add the attribute with char array value "(null)" - i.e. passing
+ * val as NULL is allowed.
+ */
 attr_t *json_add_attr(attr_t *list, const char *st, const char *val)
 {
 	attr_t *new;
@@ -480,6 +496,7 @@ char *get_proc_name(int pid)
 	return proc;
 }
 
+/* This creates the JSON message we'll send over by deserializing the C struct into a char array */
 void syslog_json_msg(struct json_msg_type json_msg)
 {
 	attr_t *head = json_msg.details;
@@ -752,7 +769,6 @@ static void handle_event(auparse_state_t *au,
 				goto_record_type(au, type);
 				json_msg.details = json_add_attr(json_msg.details, "process", auparse_find_field(au, "exe"));
 				goto_record_type(au, type);
-
 				json_msg.details = json_add_attr(json_msg.details, "pid", auparse_find_field(au, "pid"));
 				goto_record_type(au, type);
 				json_msg.details = json_add_attr(json_msg.details, "gid", auparse_find_field(au, "gid"));
