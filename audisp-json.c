@@ -54,6 +54,9 @@
 #define MAX_ARG_LEN 2048
 #define MAX_SUMMARY_LEN 256
 #define MAX_ATTR_SIZE 1023
+
+#define HTTP_CODE_OK 200
+
 #ifndef PROGRAM_VERSION
 #define PROGRAM_VERSION "1"
 #endif
@@ -170,6 +173,7 @@ void curl_perform(void)
 {
 	int msgs_left;
 	int maxfd = -1;
+	long http_code = 0;
 	struct timeval timeout;
 	int rc;
 	CURLMsg *msg;
@@ -221,6 +225,9 @@ void curl_perform(void)
 	/* Cleanup completed handles */
 	while (msg = curl_multi_info_read(multi_h, &msgs_left)) {
 		if (msg->msg == CURLMSG_DONE) {
+			if (!curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &http_code) && http_code != HTTP_CODE_OK) {
+				syslog(LOG_ERR, "Received HTTP error code %ld while sending JSON message. Message is lost!", http_code);
+			}
 			if (!ring_empty(&msg_list)) {
 				char *new_msg = ring_read(&msg_list);
 				curl_multi_remove_handle(multi_h, easy_h);
@@ -671,7 +678,6 @@ static void handle_event(auparse_state_t *au,
 			case AUDIT_PATH:
 				json_msg.details = json_add_attr(json_msg.details, "path", auparse_find_field(au, "name"));
 				goto_record_type(au, type);
-
 				json_msg.details = json_add_attr(json_msg.details, "inode", auparse_find_field(au, "inode"));
 				goto_record_type(au, type);
 				json_msg.details = json_add_attr(json_msg.details, "dev", auparse_find_field(au, "dev"));
