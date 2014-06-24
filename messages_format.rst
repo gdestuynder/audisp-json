@@ -92,8 +92,8 @@ Fields reference
 :details.fsuid,fsgid: User/group id of the owner of the running program itself, on the filesystem.
 :details.ouid,ouid: Owner user/group id on the filesystem.
 :details.suid,sgid: Saved user/group id - used when changing uid sets within the program, but a uid/gid has been saved (i.e. the program can revert to the suid if it wants to).
-:details.auid: Auditd user id - the original user who logged in (always the same even after setuid - this is generally set by PAM).
-:details.auditedusername: Human readable alias of the auid.
+:details.auid or details.originaluid: Auditd user id - the original user who logged in (always the same even after setuid - this is generally set by PAM).
+:details.originaluser: Human readable alias of the auid/originaluid.
 :details.rdev: Recorded device identifier (MAJOR:MINOR numbers) 
 :details.rdev: Recorded device identifier for special files.
 :details.mode: File mode on the filesystem (full numeral mode, such as 0100600 - that would be 0600 "short mode" or u+rw or -rw------).
