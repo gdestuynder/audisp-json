@@ -28,7 +28,7 @@ else
 endif
 LDFLAGS	:= -pie -Wl,-z,relro
 LIBS	:= -lauparse -laudit `curl-config --libs`
-DEFINES	:= -DPROGRAM_VERSION\=\"${VERSION}\"
+DEFINES	:= -DPROGRAM_VERSION\=${VERSION}
 
 GCC		:= gcc
 LIBTOOL	:= libtool
