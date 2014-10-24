@@ -423,7 +423,8 @@ char *unescape(const char *in)
 	char c;
 
 	while ((c = *src++) != '\0') {
-		if ((c == '"') || (c == '\n') || (c == '\r'))
+		if ((c == '"') || (c == '\n') || (c == '\r') || (c == '\t')
+				|| (c == '\b') || (c == '\f') || (c == '\\'))
 			continue;
 		*dst++ = c;
 	}
