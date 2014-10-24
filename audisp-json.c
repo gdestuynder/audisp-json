@@ -708,7 +708,8 @@ static void handle_event(auparse_state_t *au,
 				json_msg.details = json_add_attr(json_msg.details, "processname", auparse_find_field(au, "comm"));
 				goto_record_type(au, type);
 
-				if (!strncmp(sys, "write", 5) || !strncmp(sys, "open", 4) || !strncmp(sys, "unlink", 6)) {
+				if (!strncmp(sys, "write", 5) || !strncmp(sys, "open", 4) || !strncmp(sys, "unlink", 6) || !strncmp(sys,
+							"rename", 6)) {
 					havejson = 1;
 					json_msg.category = "write";
 					snprintf(json_msg.summary,
@@ -726,7 +727,7 @@ static void handle_event(auparse_state_t *au,
 					snprintf(json_msg.summary,
 								MAX_SUMMARY_LEN,
 								"Change file mode");
-				} else if (!strncmp(sys, "chown", 5)) {
+				} else if (!strncmp(sys, "chown", 5) || !strncmp(sys, "fchown", 6)) {
 					havejson = 1;
 					json_msg.category = "chown";
 					snprintf(json_msg.summary,
