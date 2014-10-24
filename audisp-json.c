@@ -667,6 +667,10 @@ static void handle_event(auparse_state_t *au,
 					}
 				}
 				json_msg.details = json_add_attr(json_msg.details, "command", fullcmd);
+				snprintf(json_msg.summary,
+							MAX_SUMMARY_LEN,
+							"Execve: %s",
+							fullcmd);
 				break;
 			case AUDIT_CWD:
 				cwd = auparse_find_field(au, "cwd");
@@ -743,11 +747,9 @@ static void handle_event(auparse_state_t *au,
 				} else if (!strncmp(sys, "execve", 6)) {
 					havejson = 1;
 					json_msg.category = "execve";
-					auparse_find_field(au, "comm");
-					snprintf(json_msg.summary,
-								MAX_SUMMARY_LEN,
-								"Execute new process: %s",
-								unescape(auparse_get_field_str(au)));
+					/* For execve the summary is set in AUDIT_EXECVE so that we get the full command path, as it's not
+					 * provided while parsing AUDIT_SYSCALL
+					 */
 				} else {
 					syslog(LOG_INFO, "System call %u %s is not supported by %s", i, sys, PROGRAM_NAME);
 				}
