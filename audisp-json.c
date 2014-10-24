@@ -409,6 +409,7 @@ static int goto_record_type(auparse_state_t *au, int type)
 }
 
 /* Removes quotes
+ * Remove  CR and LF
  * @const char *in: if null, we'll return a char array value of "(null)".
  */
 char *unescape(const char *in)
@@ -422,8 +423,9 @@ char *unescape(const char *in)
 	char c;
 
 	while ((c = *src++) != '\0') {
-		if (c != '"')
-			*dst++ = c;
+		if ((c == '"') || (c == '\n') || (c == '\r'))
+			continue;
+		*dst++ = c;
 	}
 	*dst = '\0';
 	return s;
@@ -812,31 +814,31 @@ static void handle_event(auparse_state_t *au,
 		snprintf(json_msg.summary,
 					MAX_SUMMARY_LEN,
 					"Execve: %s",
-					fullcmd);
+					unescape(fullcmd));
 	} else if (category == CAT_WRITE) {
 		json_msg.category = "write";
 		snprintf(json_msg.summary,
 					MAX_SUMMARY_LEN,
 					"Write: %s",
-					path);
+					unescape(path));
 	} else if (category == CAT_ATTR) {
 		json_msg.category = "attribute";
 		snprintf(json_msg.summary,
 					MAX_SUMMARY_LEN,
 					"Attribute: %s",
-					path);
+					unescape(path));
 	} else if (category == CAT_CHMOD) {
 		json_msg.category = "chmod";
 		snprintf(json_msg.summary,
 					MAX_SUMMARY_LEN,
 					"Chmod: %s",
-					path);
+					unescape(path));
 	} else if (category == CAT_CHOWN) {
 		json_msg.category = "chown";
 		snprintf(json_msg.summary,
 					MAX_SUMMARY_LEN,
 					"Chown: %s",
-					path);
+					unescape(path));
 	} else if (category == CAT_PTRACE) {
 		json_msg.category = "ptrace";
 		snprintf(json_msg.summary,
