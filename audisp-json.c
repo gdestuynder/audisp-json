@@ -60,7 +60,7 @@
 #ifndef PROGRAM_VERSION
 #define PROGRAM_VERSION "1"
 #endif
-#ifndef PROGRAME_NAME
+#ifndef PROGRAM_NAME
 #define PROGRAM_NAME "audisp-json"
 #endif
 /* transform macro int and str value to ... str - needed for defining USER_AGENT ;)*/
@@ -529,7 +529,7 @@ void syslog_json_msg(struct json_msg_type json_msg)
 	],\n\
 	\"details\": {",
 		json_msg.category, json_msg.summary, json_msg.severity, json_msg.hostname, json_msg.processid,
-		PROGRAM_NAME, json_msg.timestamp, PROGRAM_NAME, PROGRAM_VERSION);
+		PROGRAM_NAME, json_msg.timestamp, PROGRAM_NAME, STR(PROGRAM_VERSION));
 
 	while (head) {
 			len += snprintf(msg+len, MAX_JSON_MSG_SIZE, "\n%s,", head->val);
