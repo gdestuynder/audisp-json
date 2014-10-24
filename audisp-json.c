@@ -568,7 +568,19 @@ static void handle_event(auparse_state_t *au,
 		.details		= NULL,
 	};
 
+	typedef enum {
+		CAT_EXECVE,
+		CAT_WRITE,
+		CAT_PTRACE,
+		CAT_ATTR,
+		CAT_APPARMOR,
+		CAT_CHMOD,
+		CAT_CHOWN
+	} category_t;
+	category_t category;
+
 	const char *cwd = NULL, *argc = NULL, *cmd = NULL;
+	const char *path = NULL;
 	const char *sys;
 	const char *syscall = NULL;
 	char fullcmd[MAX_ARG_LEN+1] = "\0";
@@ -606,7 +618,7 @@ static void handle_event(auparse_state_t *au,
 					return;
 
 				havejson = 1;
-				json_msg.category = "AVC_APPARMOR";
+				category = CAT_APPARMOR;
 
 				json_msg.details = json_add_attr(json_msg.details, "aaresult", auparse_get_field_str(au));
 				goto_record_type(au, type);
@@ -667,10 +679,6 @@ static void handle_event(auparse_state_t *au,
 					}
 				}
 				json_msg.details = json_add_attr(json_msg.details, "command", fullcmd);
-				snprintf(json_msg.summary,
-							MAX_SUMMARY_LEN,
-							"Execve: %s",
-							fullcmd);
 				break;
 			case AUDIT_CWD:
 				cwd = auparse_find_field(au, "cwd");
@@ -680,7 +688,8 @@ static void handle_event(auparse_state_t *au,
 				}
 				break;
 			case AUDIT_PATH:
-				json_msg.details = json_add_attr(json_msg.details, "path", auparse_find_field(au, "name"));
+				path = auparse_find_field(au, "name");
+				json_msg.details = json_add_attr(json_msg.details, "path", path);
 				goto_record_type(au, type);
 				json_msg.details = json_add_attr(json_msg.details, "inode", auparse_find_field(au, "inode"));
 				goto_record_type(au, type);
@@ -715,41 +724,22 @@ static void handle_event(auparse_state_t *au,
 				if (!strncmp(sys, "write", 5) || !strncmp(sys, "open", 4) || !strncmp(sys, "unlink", 6) || !strncmp(sys,
 							"rename", 6)) {
 					havejson = 1;
-					json_msg.category = "write";
-					snprintf(json_msg.summary,
-								MAX_SUMMARY_LEN,
-								"Write or append to file");
+					category = CAT_WRITE;
 				} else if (!strncmp(sys, "setxattr", 8)) {
 					havejson = 1;
-					json_msg.category = "attribute";
-					snprintf(json_msg.summary,
-								MAX_SUMMARY_LEN,
-								"Change file attributes");
+					category = CAT_ATTR;
 				} else if (!strncmp(sys, "chmod", 5)) {
 					havejson = 1;
-					json_msg.category = "chmod";
-					snprintf(json_msg.summary,
-								MAX_SUMMARY_LEN,
-								"Change file mode");
+					category = CAT_CHMOD;
 				} else if (!strncmp(sys, "chown", 5) || !strncmp(sys, "fchown", 6)) {
 					havejson = 1;
-					json_msg.category = "chown";
-					snprintf(json_msg.summary,
-								MAX_SUMMARY_LEN,
-								"Change file owner");
+					category = CAT_CHOWN;
 				} else if (!strncmp(sys, "ptrace",  6)) {
 					havejson = 1;
-					json_msg.category = "ptrace";
-					snprintf(json_msg.summary,
-								MAX_SUMMARY_LEN,
-								"Process tracing");
-
+					category = CAT_PTRACE;
 				} else if (!strncmp(sys, "execve", 6)) {
 					havejson = 1;
-					json_msg.category = "execve";
-					/* For execve the summary is set in AUDIT_EXECVE so that we get the full command path, as it's not
-					 * provided while parsing AUDIT_SYSCALL
-					 */
+					category = CAT_EXECVE;
 				} else {
 					syslog(LOG_INFO, "System call %u %s is not supported by %s", i, sys, PROGRAM_NAME);
 				}
@@ -811,10 +801,53 @@ static void handle_event(auparse_state_t *au,
 		return;
 	}
 
-	//This also frees json_msg.details
+	/* We set the category/summary here as the JSON msg structure is complete at this point. (i.e. just before
+	 * syslog_json_msg...) Since we don't know the order of messages, this is the only way to ensure we can fill a
+	 * useful summary from various AUDIT messages (sometimes the values are set from AUDIT_EXECVE, sometimes AUDIT_PATH,
+	 * and so on.
+	 */
+
+	if (category == CAT_EXECVE) {
+		json_msg.category = "execve";
+		snprintf(json_msg.summary,
+					MAX_SUMMARY_LEN,
+					"Execve: %s",
+					fullcmd);
+	} else if (category == CAT_WRITE) {
+		json_msg.category = "write";
+		snprintf(json_msg.summary,
+					MAX_SUMMARY_LEN,
+					"Write: %s",
+					path);
+	} else if (category == CAT_ATTR) {
+		json_msg.category = "attribute";
+		snprintf(json_msg.summary,
+					MAX_SUMMARY_LEN,
+					"Attribute: %s",
+					path);
+	} else if (category == CAT_CHMOD) {
+		json_msg.category = "chmod";
+		snprintf(json_msg.summary,
+					MAX_SUMMARY_LEN,
+					"Chmod: %s",
+					path);
+	} else if (category == CAT_CHOWN) {
+		json_msg.category = "chown";
+		snprintf(json_msg.summary,
+					MAX_SUMMARY_LEN,
+					"Chown: %s",
+					path);
+	} else if (category == CAT_PTRACE) {
+		json_msg.category = "ptrace";
+		snprintf(json_msg.summary,
+					MAX_SUMMARY_LEN,
+					"Ptrace");
+	}
+
+	/* syslog_json_msg() also frees json_msg.details when called. */
 	syslog_json_msg(json_msg);
 
-	/* if we have no traffic going on lets start some 
+	/* if we have no traffic going on lets start some
 	 * otherwise, traffic is queued in the select loop at curl_perform()
 	 */
 	if (curl_nr_h <= 0) {
