@@ -225,9 +225,14 @@ void curl_perform(void)
 	/* Cleanup completed handles */
 	while (msg = curl_multi_info_read(multi_h, &msgs_left)) {
 		if (msg->msg == CURLMSG_DONE) {
-			if (!curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &http_code) && http_code != HTTP_CODE_OK) {
-				syslog(LOG_ERR, "Received HTTP error code %ld while sending JSON message. Message is lost!", http_code);
+			ret = curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &http_code);
+			if (ret != CURLM_OK) {
+			   syslog(LOG_ERR, "Couldn't send JSON message (message is lost): %s.", curl_easy_strerror(ret));
 			}
+		if (http_code != HTTP_CODE_OK) {
+				syslog(LOG_ERR, "Couldn't send JSON message (message is lost):  HTTP error code %ld.", http_code);
+			}
+
 			if (!ring_empty(&msg_list)) {
 				char *new_msg = ring_read(&msg_list);
 				curl_multi_remove_handle(multi_h, easy_h);
