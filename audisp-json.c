@@ -166,6 +166,7 @@ void prepare_curl_handle(void)
 	curl_easy_setopt(easy_h, CURLOPT_TIMEOUT_MS, MAX_CURL_GLOBAL_TIMEOUT);
 	curl_easy_setopt(easy_h, CURLOPT_SSL_VERIFYHOST, config.ssl_verify);
 	curl_easy_setopt(easy_h, CURLOPT_SSL_VERIFYPEER, config.ssl_verify);
+	curl_easy_setopt(easy_h, CURLOPT_CAINFO, config.curl_cainfo);
 }
 
 /* select and fetch urls */

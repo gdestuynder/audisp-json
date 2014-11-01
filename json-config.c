@@ -49,7 +49,7 @@ struct kw_pair
 };
 
 struct nv_list
-{ 
+{
 	const char *name;
 	int option;
 };
@@ -57,18 +57,21 @@ struct nv_list
 static char *get_line(FILE *f, char *buf);
 static int nv_split(char *buf, struct nv_pair *nv);
 static const struct kw_pair *kw_lookup(const char *val);
-static int server_parser(struct nv_pair *nv, int line, 
+static int server_parser(struct nv_pair *nv, int line,
 		json_conf_t *config);
-static int ssl_parser(struct nv_pair *nv, int line, 
+static int curl_ca_parser(struct nv_pair *nv, int line,
 		json_conf_t *config);
-static int curl_parser(struct nv_pair *nv, int line, 
+static int ssl_parser(struct nv_pair *nv, int line,
+		json_conf_t *config);
+static int curl_parser(struct nv_pair *nv, int line,
 		json_conf_t *config);
 
 static const struct kw_pair keywords[] =
 {
 	{"mozdef_url",	server_parser,	0},
-	{"ssl_verify",	ssl_parser,		0},
-	{"curl_verbose",curl_parser,	0},
+	{"curl_cainfo", curl_ca_parser,	0},
+	{"ssl_verify",	ssl_parser,	0},
+	{"curl_verbose", curl_parser,	0},
 };
 
 /*
@@ -291,10 +294,20 @@ static int ssl_parser(struct nv_pair *nv, int line,
 	return 0;
 }
 
+static int curl_ca_parser(struct nv_pair *nv, int line,
+		json_conf_t *config)
+{
+	if (nv->value)
+		config->curl_cainfo = strdup(nv->value);
+	else
+		config->curl_cainfo = NULL;
+	return 0;
+}
+
 static int curl_parser(struct nv_pair *nv, int line,
 		json_conf_t *config)
 {
-	config->curl_verbose = 1;
+	config->curl_verbose = 2;
 	if (nv->value) {
 		if (strncasecmp(nv->value, "no", 2) == 0) {
 			config->curl_verbose = 0;

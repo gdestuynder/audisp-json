@@ -1,4 +1,4 @@
-/* remote-config.h
+/* json-config.h
  * Copyright 2008 Red Hat Inc., Durham, North Carolina.
  * Copyright 2014 Mozilla Corporation
  * All Rights Reserved.
@@ -29,6 +29,7 @@
 typedef struct json_conf
 {
 	const char *mozdef_url;
+	const char *curl_cainfo;
 	int ssl_verify;
 	int curl_verbose;
 } json_conf_t;
