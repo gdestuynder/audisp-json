@@ -416,12 +416,12 @@ static int goto_record_type(auparse_state_t *au, int type)
 
 /* Removes quotes
  * Remove  CR and LF
- * @const char *in: if null, we'll return a char array value of "(null)".
+ * @const char *in: if NULL, no processing is done.
  */
 char *unescape(const char *in)
 {
 	if (in == NULL)
-		return "(null)";
+		return NULL;
 
 	char *dst = (char *)in;
 	char *s = dst;
@@ -441,12 +441,14 @@ char *unescape(const char *in)
 /* Add a field to the json msg's details={}
  * @attr_t *list: the attribute list to extend
  * @const char *st: the attribute name to add
- * @const char *val: the attribut value - if NULL, we'll add the attribute with char array value "(null)" - i.e. passing
- * val as NULL is allowed.
+ * @const char *val: the attribut value - if NULL, we won't add the field to the json message at all.
  */
 attr_t *json_add_attr(attr_t *list, const char *st, const char *val)
 {
 	attr_t *new;
+
+	if (val == NULL)
+		return list;
 
 	new = malloc(sizeof(attr_t));
 	snprintf(new->val, MAX_ATTR_SIZE, "\t\t\"%s\": \"%s\"", st, unescape(val));
