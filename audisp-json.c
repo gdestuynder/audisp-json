@@ -447,7 +447,7 @@ attr_t *json_add_attr(attr_t *list, const char *st, const char *val)
 {
 	attr_t *new;
 
-	if (val == NULL)
+	if (val == NULL || val == "(null)")
 		return list;
 
 	new = malloc(sizeof(attr_t));
