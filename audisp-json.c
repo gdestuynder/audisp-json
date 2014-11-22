@@ -238,8 +238,7 @@ void curl_perform(void)
 				char *new_msg = ring_read(&msg_list);
 				curl_multi_remove_handle(multi_h, easy_h);
 				prepare_curl_handle();
-				curl_easy_setopt(easy_h, CURLOPT_POSTFIELDS, new_msg);
-				curl_easy_setopt(easy_h, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)strlen(new_msg));
+				curl_easy_setopt(easy_h, CURLOPT_COPYPOSTFIELDS, new_msg);
 				free(new_msg);
 				curl_nr_h++;
 				curl_multi_add_handle(multi_h, easy_h);
@@ -866,8 +865,7 @@ static void handle_event(auparse_state_t *au,
 
 		curl_multi_remove_handle(multi_h, easy_h);
 		prepare_curl_handle();
-		curl_easy_setopt(easy_h, CURLOPT_POSTFIELDS, msg);
-		curl_easy_setopt(easy_h, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)strlen(msg));
+		curl_easy_setopt(easy_h, CURLOPT_COPYPOSTFIELDS, msg);
 		free(msg);
 		curl_nr_h++;
 		curl_multi_add_handle(multi_h, easy_h);
