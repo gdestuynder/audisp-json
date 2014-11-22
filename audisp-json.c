@@ -78,7 +78,6 @@ static auparse_state_t *au = NULL;
 static int machine = -1;
 
 static long int curl_timeout = -1;
-int curl_nr_h = 0;
 CURLM *multi_h;
 CURL *easy_h;
 struct curl_slist *slist1;
@@ -173,6 +172,7 @@ void prepare_curl_handle(void)
 void curl_perform(void)
 {
 	int msgs_left;
+	int curl_nr_h = -1;
 	int maxfd = -1;
 	long http_code = 0;
 	struct timeval timeout;
@@ -181,7 +181,7 @@ void curl_perform(void)
 	CURL *eh;
 	CURLcode ret;
 
-	while (curl_nr_h > 0) {
+	while (curl_nr_h != 0) {
 		fd_set r, w, e;
 		FD_ZERO(&r);
 		FD_ZERO(&w);
@@ -215,6 +215,7 @@ void curl_perform(void)
 				break;
 			case 0:
 			default:
+				/* This also sets curl_nr_h to exactly 0 if all the handles have been processed. */
 				ret = curl_multi_perform(multi_h, &curl_nr_h);
 				if (ret != CURLM_OK) {
 					syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
@@ -233,17 +234,16 @@ void curl_perform(void)
 			if (http_code != HTTP_CODE_OK) {
 				syslog(LOG_ERR, "Couldn't send JSON message (message is lost):  HTTP error code %ld.", http_code);
 			}
-
-			if (!ring_empty(&msg_list)) {
-				char *new_msg = ring_read(&msg_list);
-				curl_multi_remove_handle(multi_h, easy_h);
-				prepare_curl_handle();
-				curl_easy_setopt(easy_h, CURLOPT_COPYPOSTFIELDS, new_msg);
-				free(new_msg);
-				curl_nr_h++;
-				curl_multi_add_handle(multi_h, easy_h);
-			}
 		}
+	}
+
+	while (!ring_empty(&msg_list)) {
+		char *new_msg = ring_read(&msg_list);
+		curl_multi_remove_handle(multi_h, easy_h);
+		prepare_curl_handle();
+		curl_easy_setopt(easy_h, CURLOPT_COPYPOSTFIELDS, new_msg);
+		free(new_msg);
+		curl_multi_add_handle(multi_h, easy_h);
 	}
 }
 
@@ -344,13 +344,6 @@ int main(int argc, char *argv[])
 	slist1 = curl_slist_append(slist1, "Content-Type:application/json");
 	if (!(easy_h && multi_h && slist1)) {
 		syslog(LOG_ERR, "cURL handles creation failed, this is fatal.");
-		return -1;
-	}
-	prepare_curl_handle();
-	curl_nr_h = 1;
-	ret = curl_multi_add_handle(multi_h, easy_h);
-	if (ret != CURLM_OK) {
-		syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
 		return -1;
 	}
 
@@ -856,19 +849,5 @@ static void handle_event(auparse_state_t *au,
 
 	/* syslog_json_msg() also frees json_msg.details when called. */
 	syslog_json_msg(json_msg);
-
-	/* if we have no traffic going on lets start some
-	 * otherwise, traffic is queued in the select loop at curl_perform()
-	 */
-	if (curl_nr_h <= 0) {
-		char *msg = ring_read(&msg_list);
-
-		curl_multi_remove_handle(multi_h, easy_h);
-		prepare_curl_handle();
-		curl_easy_setopt(easy_h, CURLOPT_COPYPOSTFIELDS, msg);
-		free(msg);
-		curl_nr_h++;
-		curl_multi_add_handle(multi_h, easy_h);
-	}
 	curl_perform();
 }
