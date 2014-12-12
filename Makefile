@@ -72,8 +72,8 @@ rpm: packaging
 
 deb: packaging
 	fpm -C tmp -v ${VERSION} -n audisp-json --license GPL --vendor mozilla --description "json plugin for Linux Audit" \
-		--url https://github.com/gdestuynder/audisp-json -d auditd -d libcurl \
-		--deb-build-depends libaudit-dev --deb-build-depends libcurl-dev \
+		--url https://github.com/gdestuynder/audisp-json -d auditd -d libcurl3 \
+		--deb-build-depends libaudit-dev --deb-build-depends libcurl4-openssl-dev \
 		--config-files etc/audisp/plugins.d/au-json.conf --config-files etc/audisp/audisp-json.conf -s dir -t deb .
 
 clean:
