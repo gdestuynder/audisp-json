@@ -18,7 +18,11 @@
 # Authors:
 #   Guillaume Destuynder <gdestuynder@mozilla.com>
 
-VERSION	:= 1.4
+VERSION	:= 1.5
+
+# Turn this off if you don't get issues with out of sequence messages/missing event attributes
+REORDER_HACK := 1
+
 DEBUG	:= 0
 ifneq ($(DEBUG),0)
 	DEBUGF	:= -DDEBUG
@@ -28,7 +32,7 @@ else
 endif
 LDFLAGS	:= -pie -Wl,-z,relro
 LIBS	:= -lauparse -laudit `curl-config --libs`
-DEFINES	:= -DPROGRAM_VERSION\=${VERSION}
+DEFINES	:= -DPROGRAM_VERSION\=${VERSION} -DREORDER_HACK\=${REORDER_HACK}
 
 GCC		:= gcc
 LIBTOOL	:= libtool

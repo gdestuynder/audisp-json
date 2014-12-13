@@ -265,21 +265,87 @@ static void reload_config(void)
 	hup = 0;
 }
 
-/* find string distance from *in until char c is reached */
-unsigned int strstok(char *in, char c)
+#ifdef REORDER_HACK
+/*
+ * Hack to reorder input
+ * libaudit's auparse seems not to correlate messages correctly if event ids are out of sequence, ex (event id are
+ * 418143181 and 418143182):
+ * type=EXECVE msg=audit(1418253698.016:418143181): argc=3 a0="sh" a1="-c" a2=[redacted]
+ * type=EXECVE msg=audit(1418253698.016:418143182): argc=3 a0="sh" a1="-c" a2=[redacted]
+ * type=CWD msg=audit(1418253698.016:418143181):  cwd="/opt/observium"
+ * type=CWD msg=audit(1418253698.016:418143182):  cwd="/opt/observium"
+ *
+ * This hack sort them back so that event ids are back to back like this:
+ * type=EXECVE msg=audit(1418253698.016:418143181): argc=3 a0="sh" a1="-c" a2=[redacted]
+ * type=CWD msg=audit(1418253698.016:418143181):  cwd="/opt/observium"
+ * type=EXECVE msg=audit(1418253698.016:418143182): argc=3 a0="sh" a1="-c" a2=[redacted]
+ * type=CWD msg=audit(1418253698.016:418143182):  cwd="/opt/observium"
+ *
+ * Without the hack, when the event id correlation fails, auparse would only return the parsed event until the point of
+ * failure (so basically half of the message will be missing from the event/fields will be empty...)
+ *
+ * WARNING: The hack relies on properly null terminated strings here and there and doesn't do much bound checking other
+ * than that. Be careful.
+ * NOTE: This hack is only necessary when you can't fix libaudit easily, obviously. It's neither nice neither all that fast.
+ */
+
+/* count occurences of c in *in */
+unsigned int strcharc(char *in, char c)
 {
-	unsigned int slen, len = 0;
+	unsigned int i = 0;
 
-	if (in == NULL)
-		return len;
-
-	slen = strlen(in);
-
-	while (in[len] != c && len <= slen)
-		len++;
-	len++;
-	return len;
+	for (i = 0; in[i]; in[i] == c ? i++ : *in++);
+	return i;
 }
+
+static int eventcmp(const void *p1, const void *p2)
+{
+	char *s1, *s2;
+	char *a1, *a2;
+	s1 = *(char * const*)p1;
+	s2 = *(char * const*)p2;
+
+	a1 = s1;
+	while (a1[0] != ':' && a1[0] != '\0') {
+		a1++;
+	}
+
+	a2 = s2;
+	while (a2[0] != ':' && a2[0] != '\0') {
+		a2++;
+	}
+
+	return strcmp(a1, a2);
+}
+
+void reorder_input_hack(char **sorted_tmp, char *tmp, unsigned int len)
+{
+		unsigned int lines;
+		unsigned int i = 0;
+		*sorted_tmp[0] = '\0';
+
+		lines = strcharc(tmp, '\n');
+		char *buf[lines];
+		char *line;
+		char *saved;
+
+		line = strtok_r(tmp, "\n", &saved);
+		buf[i] = malloc(strlen(line) + 1);
+		strcpy(buf[i], line);
+		i++;
+		for (i; i < lines; i++) {
+			line = strtok_r(NULL, "\n", &saved);
+			buf[i] = malloc(strlen(line) + 1);
+			strcpy(buf[i], line);
+		}
+
+		qsort(&buf, lines, sizeof(char *), eventcmp);
+		for (i = 0; i < lines; i++) {
+			sprintf(*sorted_tmp, "%s%s\n", *sorted_tmp, buf[i]);
+			free(buf[i]);
+		}
+}
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -363,7 +429,14 @@ int main(int argc, char *argv[])
 		 * messages even thus the record serial matches.
 		 */
 		while ((len = fread_unlocked(tmp, 1, MAX_AUDIT_MESSAGE_LENGTH, stdin))) {
+#ifdef REORDER_HACK
+			char *sorted_tmp = malloc(len);
+			reorder_input_hack(&sorted_tmp, tmp, len);
+			auparse_feed(au, sorted_tmp, len);
+			free(sorted_tmp);
+#else
 			auparse_feed(au, tmp, len);
+#endif
 		}
 
 		if (feof(stdin))
