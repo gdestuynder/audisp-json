@@ -116,34 +116,32 @@ struct json_msg_type {
 
 int ring_full(ring_buf_msg_t *rb)
 {
-	return (rb->end + 1) % rb->size == rb->start;
+	return rb->end == (rb->start ^ rb->size);
 }
 
 int ring_empty(ring_buf_msg_t *rb)
 {
-	if ((rb->end-1) == rb->start) {
-		return 1;
-	}
-	return 0;
+	return rb->end == rb->start;
 }
 
-void ring_add(ring_buf_msg_t *rb, char *val)
+int ring_add(ring_buf_msg_t *rb, int p)
 {
-	msg_t data = {0};
-	data.val = val;
+	return (p + 1)&(2*rb->size-1);
+}
 
-	rb->data[rb->end] = data;
-	rb->end = (rb->end + 1) % rb->size;
-	if (rb->end == rb->start) {
-		rb->start = (rb->start + 1) % rb->size;
-	}
+void ring_write(ring_buf_msg_t *rb, char *val)
+{
+	rb->data[rb->end&(rb->size-1)].val = val;
+	if (ring_full(rb))
+		rb->start = ring_add(rb, rb->start);
+	rb->end = ring_add(rb, rb->end);
 }
 
 char *ring_read(ring_buf_msg_t *rb)
 {
 	char *val;
-	val = rb->data[rb->start].val;
-	rb->start = (rb->start + 1) % rb->size;
+	val = rb->data[rb->start&(rb->size-1)].val;
+	rb->start = ring_add(rb, rb->start);
 	return val;
 }
 
@@ -621,7 +619,7 @@ void syslog_json_msg(struct json_msg_type json_msg)
 	len += snprintf(msg+len, MAX_JSON_MSG_SIZE, "	}\n}");
 	msg[MAX_JSON_MSG_SIZE-1] = '\0';
 
-	ring_add(&msg_list, msg);
+	ring_write(&msg_list, msg);
 #ifdef DEBUG
 	printf("%s\n", msg);
 #endif
