@@ -93,7 +93,7 @@ typedef struct ring_buf_msg {
 static ring_buf_msg_t msg_list;
 
 typedef struct	ll {
-	char val[MAX_ATTR_SIZE];
+	char value[MAX_ATTR_SIZE];
 	struct ll *next;
 } attr_t;
 
@@ -512,11 +512,11 @@ attr_t *json_add_attr(attr_t *list, const char *st, const char *val)
 {
 	attr_t *new;
 
-	if (val == NULL || val == "(null)")
+	if (st == NULL || st == "(null)" || val == NULL || val == "(null)")
 		return list;
 
 	new = malloc(sizeof(attr_t));
-	snprintf(new->val, MAX_ATTR_SIZE, "\t\t\"%s\": \"%s\"", st, unescape(val));
+	snprintf(new->value, MAX_ATTR_SIZE, "\t\t\"%s\": \"%s\"", st, unescape(val));
 	new->next = list;
 	return new;
 }
@@ -608,7 +608,7 @@ void syslog_json_msg(struct json_msg_type json_msg)
 		PROGRAM_NAME, json_msg.timestamp, PROGRAM_NAME, STR(PROGRAM_VERSION));
 
 	while (head) {
-			len += snprintf(msg+len, MAX_JSON_MSG_SIZE, "\n%s,", head->val);
+			len += snprintf(msg+len, MAX_JSON_MSG_SIZE, "\n%s,", head->value);
 			prev = head;
 			head = head->next;
 			free(prev);
