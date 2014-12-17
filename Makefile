@@ -22,17 +22,22 @@ VERSION	:= 1.5
 
 # Turn this off if you don't get issues with out of sequence messages/missing event attributes
 REORDER_HACK := 1
+ifneq ($(REORDER_HACK),0)
+	REORDER_HACKF	:= -DREORDER_HACK
+endif
 
 DEBUG	:= 0
-ifneq ($(DEBUG),0)
+ifeq ($(DEBUG),2)
 	DEBUGF	:= -DDEBUG
+	CFLAGS	:= -fPIE -DPIE -g -O0 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all 
+else ifeq ($(DEBUG),1)
 	CFLAGS	:= -fPIE -DPIE -g -O0 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all 
 else
 	CFLAGS	:= -fPIE -DPIE -g -O2 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all -D_FORTIFY_SOURCE=2
 endif
 LDFLAGS	:= -pie -Wl,-z,relro
 LIBS	:= -lauparse -laudit `curl-config --libs`
-DEFINES	:= -DPROGRAM_VERSION\=${VERSION} -DREORDER_HACK\=${REORDER_HACK}
+DEFINES	:= -DPROGRAM_VERSION\=${VERSION} ${REORDER_HACKF}
 
 GCC		:= gcc
 LIBTOOL	:= libtool
