@@ -499,7 +499,7 @@ char *unescape(const char *in)
 			continue;
 		*dst++ = c;
 	}
-	*dst = '\0';
+	*dst++ = '\0';
 	return s;
 }
 
