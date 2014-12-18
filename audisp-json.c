@@ -54,6 +54,9 @@
 #define MAX_ARG_LEN 2048
 #define MAX_SUMMARY_LEN 256
 #define MAX_ATTR_SIZE 1023
+#ifdef REORDER_HACK
+#define NR_LINES_BUFFERED 64
+#endif
 
 #define HTTP_CODE_OK 200
 
@@ -300,48 +303,81 @@ static int eventcmp(const void *p1, const void *p2)
 {
 	char *s1, *s2;
 	char *a1, *a2;
+	int i;
 	s1 = *(char * const*)p1;
 	s2 = *(char * const*)p2;
 
+	if (!s1 || !s2)
+		return 0;
+
 	a1 = s1;
-	while (a1[0] != ':' && a1[0] != '\0') {
+	i = 0;
+	while (a1[0] != ':' && a1[0] != '\0' && i < MAX_AUDIT_MESSAGE_LENGTH) {
+		i++;
 		a1++;
 	}
 
 	a2 = s2;
-	while (a2[0] != ':' && a2[0] != '\0') {
+	i = 0;
+	while (a2[0] != ':' && a2[0] != '\0' && i < MAX_AUDIT_MESSAGE_LENGTH) {
+		i++;
 		a2++;
 	}
 
 	return strcmp(a1, a2);
 }
 
-void reorder_input_hack(char **sorted_tmp, char *tmp, unsigned int len)
+size_t reorder_input_hack(char **sorted_tmp, char *tmp)
 {
-		unsigned int lines;
+		unsigned int lines = 0;
+		unsigned int llen = 0;
+		size_t flen = 0;
 		unsigned int i = 0;
-		*sorted_tmp[0] = '\0';
-
 		lines = strcharc(tmp, '\n');
+
 		char *buf[lines];
 		char *line;
 		char *saved;
 
 		line = strtok_r(tmp, "\n", &saved);
-		buf[i] = malloc(strlen(line) + 1);
-		strcpy(buf[i], line);
+		if (!line) {
+			syslog(LOG_ERR, "message has no LF, message lost!");
+			return 0;
+		}
+
+		llen = strnlen(line, MAX_AUDIT_MESSAGE_LENGTH);
+		buf[i] = malloc(llen + 1);
+		if (!buf[i]) {
+			*sorted_tmp = tmp;
+			syslog(LOG_ERR, "reorder_input_hack() malloc failed won't reorder");
+			return strnlen(tmp, MAX_AUDIT_MESSAGE_LENGTH);
+		}
+		snprintf(buf[i], llen+1, "%s", line);
 		i++;
+
 		for (i; i < lines; i++) {
 			line = strtok_r(NULL, "\n", &saved);
-			buf[i] = malloc(strlen(line) + 1);
-			strcpy(buf[i], line);
+			if (!line) {
+				continue;
+			}
+			llen = strnlen(line, MAX_AUDIT_MESSAGE_LENGTH);
+			buf[i] = malloc(llen + 1);
+			if (!buf[i]) {
+				syslog(LOG_ERR, "reorder_input_hack() malloc failed partially reordering");
+				continue;
+			}
+			snprintf(buf[i], llen+1, "%s", line);
 		}
 
 		qsort(&buf, lines, sizeof(char *), eventcmp);
+
 		for (i = 0; i < lines; i++) {
-			sprintf(*sorted_tmp, "%s%s\n", *sorted_tmp, buf[i]);
-			free(buf[i]);
+			flen += snprintf(*sorted_tmp+flen, MAX_AUDIT_MESSAGE_LENGTH, "%s\n",  buf[i]);
+			if (buf[i]) {
+				free(buf[i]);
+			}
 		}
+		return flen;
 }
 #endif
 
@@ -397,6 +433,11 @@ int main(int argc, char *argv[])
 	msg_list.end = 0;
 	msg_list.data = (msg_t *)calloc(RING_BUF_LEN, sizeof(msg_t));
 
+	if (!msg_list.data) {
+		syslog(LOG_ERR, "calloc() failed");
+		return -1;
+	}
+
 	if (curl_global_init(CURL_GLOBAL_ALL) != 0) {
 		syslog(LOG_ERR, "curl_global_init() failed");
 		return -1;
@@ -407,9 +448,21 @@ int main(int argc, char *argv[])
 	slist1 = NULL;
 	slist1 = curl_slist_append(slist1, "Content-Type:application/json");
 	if (!(easy_h && multi_h && slist1)) {
-		syslog(LOG_ERR, "cURL handles creation failed, this is fatal.");
+		syslog(LOG_ERR, "cURL handles creation failed, this is fatal");
 		return -1;
 	}
+
+#ifdef REORDER_HACK
+	int i = 0;
+	char *full_str_tmp = malloc(NR_LINES_BUFFERED*MAX_AUDIT_MESSAGE_LENGTH);
+	char *sorted_tmp = malloc(NR_LINES_BUFFERED*MAX_AUDIT_MESSAGE_LENGTH);
+	if (!sorted_tmp || !full_str_tmp) {
+		syslog(LOG_ERR, "main() malloc failed for sorted_tmp || full_str_tmp, this is fatal");
+		return -1;
+	}
+	sorted_tmp[0] = '\0';
+	full_str_tmp[0] = '\0';
+#endif
 
 	auparse_add_callback(au, handle_event, NULL, NULL);
 	syslog(LOG_INFO, "%s loaded\n", PROGRAM_NAME);
@@ -421,17 +474,26 @@ int main(int argc, char *argv[])
 		if (hup)
 			reload_config();
 
-		/* Note: auparse matches on the complete record field in order to associate all matching records into one
-		 * message. This means both the timestamp and the record serial (UUID) must match. If for some reason the kernel
-		 * sends various records for the same event at a different time, the messages will be processed as 2 separate
-		 * messages even thus the record serial matches.
+		/* NOTE: There's quite a few reasons for auparse_feed() from libaudit to fail parsing silently so we have to be careful here.
+		 * Anything passed to it:
+		 * - must have the same timestamp for a given event id. (kernel takes care of that, if not, you're out of luck).
+		 * - must always be LF+NULL terminated ("\n\0"). (fgets takes care of that even thus it's not nearly as fast as fread).
+		 * - must always have event ids in sequential order. (REORDER_HACK takes care of that, it also buffer lines, since, well, it needs to).
 		 */
-		while ((len = fread_unlocked(tmp, 1, MAX_AUDIT_MESSAGE_LENGTH, stdin))) {
+		while (fgets_unlocked(tmp, MAX_AUDIT_MESSAGE_LENGTH, stdin)) {
+			len = strnlen(tmp, MAX_AUDIT_MESSAGE_LENGTH);
 #ifdef REORDER_HACK
-			char *sorted_tmp = malloc(len);
-			reorder_input_hack(&sorted_tmp, tmp, len);
-			auparse_feed(au, sorted_tmp, len);
-			free(sorted_tmp);
+			if (i < NR_LINES_BUFFERED) {
+				strncat(full_str_tmp, tmp, len);
+				i++;
+			} else {
+				strncat(full_str_tmp, tmp, len);
+				len = reorder_input_hack(&sorted_tmp, full_str_tmp);
+				auparse_feed(au, sorted_tmp, len);
+				i = 0;
+				sorted_tmp[0] = '\0';
+				full_str_tmp[0] = '\0';
+			}
 #else
 			auparse_feed(au, tmp, len);
 #endif
@@ -452,6 +514,9 @@ int main(int argc, char *argv[])
 	free(msg_list.data);
 	free_config(&config);
 	free(hostname);
+#ifdef REORDER_HACK
+	free(sorted_tmp);
+#endif
 	syslog(LOG_INFO, "%s unloaded\n", PROGRAM_NAME);
 	closelog();
 
@@ -510,10 +575,15 @@ attr_t *json_add_attr(attr_t *list, const char *st, const char *val)
 {
 	attr_t *new;
 
-	if (st == NULL || st == "(null)" || val == NULL || val == "(null)")
+	if (st == NULL || st == "(null)" || val == NULL || val == "(null)") {
 		return list;
+	}
 
 	new = malloc(sizeof(attr_t));
+	if (!new) {
+		syslog(LOG_ERR, "json_add_attr() malloc failed attribute will be empty: %s", st);
+		return list;
+	}
 	snprintf(new->value, MAX_ATTR_SIZE, "\t\t\"%s\": \"%s\"", st, unescape(val));
 	new->next = list;
 	return new;
@@ -542,6 +612,9 @@ char *get_username(int uid)
 	if (bufsize == -1)
 		bufsize = 16384;
 	buf = (char *)alloca(bufsize);
+	if (!buf) {
+		return NULL;
+	}
 
 	if (uid == -1) {
 		return NULL;
@@ -586,6 +659,10 @@ void syslog_json_msg(struct json_msg_type json_msg)
 	int len;
 
 	msg = malloc((size_t)MAX_JSON_MSG_SIZE);
+	if (!msg) {
+		syslog(LOG_ERR, "syslog_json_msg() malloc failed, message lost!");
+		return;
+	}
 
 	len = snprintf(msg, MAX_JSON_MSG_SIZE,
 "{\n\
@@ -658,6 +735,7 @@ static void handle_event(auparse_state_t *au,
 	const char *sys;
 	const char *syscall = NULL;
 	char fullcmd[MAX_ARG_LEN+1] = "\0";
+	char serial[64] = "\0";
 	time_t t;
 	struct tm *tmp;
 
@@ -666,13 +744,17 @@ static void handle_event(auparse_state_t *au,
 	int argcount, i;
 	int havejson = 0;
 
+	/* wait until the lib gives up a full/ready event */
 	if (cb_event_type != AUPARSE_CB_EVENT_READY) {
-		printf("try again later\n");
 		return;
 	}
 
 	json_msg.timestamp = (char *)alloca(64);
 	json_msg.summary = (char *)alloca(MAX_SUMMARY_LEN);
+	if (!json_msg.summary || !json_msg.timestamp) {
+		syslog(LOG_ERR, "handle_event() alloca failed, message lost!");
+		return;
+	}
 
 	while (auparse_goto_record_num(au, num) > 0) {
 		type = auparse_get_type(au);
@@ -684,6 +766,8 @@ static void handle_event(auparse_state_t *au,
 		t = auparse_get_time(au);
 		tmp = localtime(&t);
 		strftime(json_msg.timestamp, 64, "%FT%T%z", tmp);
+		snprintf(serial, 63, "%lu", auparse_get_serial(au));
+		json_msg.details = json_add_attr(json_msg.details, "auditserial", serial);
 
 		switch (type) {
 			case AUDIT_AVC:
