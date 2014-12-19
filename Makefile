@@ -18,12 +18,20 @@
 # Authors:
 #   Guillaume Destuynder <gdestuynder@mozilla.com>
 
-VERSION	:= 1.5
+VERSION	:= 1.6
 
-# Turn this off if you don't get issues with out of sequence messages/missing event attributes
-REORDER_HACK := 1
+# Turn this on if you get issues with out of sequence messages/missing event attributes
+# Only needed for some versions of libaudit - if you don't have problems, leave off.
+REORDER_HACK := 0
 ifneq ($(REORDER_HACK),0)
 	REORDER_HACKF	:= -DREORDER_HACK
+endif
+
+# Turn this off if you want the extra noise of script execs and the like, which do not produce an EXECVE audit message
+# See the source code for more info.
+IGNORE_EMPTY_EXECVE_COMMAND := 1
+ifneq ($(IGNORE_EMPTY_EXECVE_COMMAND),0)
+	IGNORE_EMPTY_EXECVE_COMMANDF	:= -DIGNORE_EMPTY_EXECVE_COMMAND
 endif
 
 DEBUG	:= 0
@@ -35,9 +43,10 @@ else ifeq ($(DEBUG),1)
 else
 	CFLAGS	:= -fPIE -DPIE -g -O2 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all -D_FORTIFY_SOURCE=2
 endif
+
 LDFLAGS	:= -pie -Wl,-z,relro
 LIBS	:= -lauparse -laudit `curl-config --libs`
-DEFINES	:= -DPROGRAM_VERSION\=${VERSION} ${REORDER_HACKF}
+DEFINES	:= -DPROGRAM_VERSION\=${VERSION} ${REORDER_HACKF} ${IGNORE_EMPTY_EXECVE_COMMANDF}
 
 GCC		:= gcc
 LIBTOOL	:= libtool

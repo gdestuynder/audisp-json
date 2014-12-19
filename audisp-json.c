@@ -453,6 +453,8 @@ int main(int argc, char *argv[])
 	}
 
 #ifdef REORDER_HACK
+	int start = 0;
+	int stop = 0;
 	int i = 0;
 	char *full_str_tmp = malloc(NR_LINES_BUFFERED*MAX_AUDIT_MESSAGE_LENGTH);
 	char *sorted_tmp = malloc(NR_LINES_BUFFERED*MAX_AUDIT_MESSAGE_LENGTH);
@@ -483,7 +485,12 @@ int main(int argc, char *argv[])
 		while (fgets_unlocked(tmp, MAX_AUDIT_MESSAGE_LENGTH, stdin)) {
 			len = strnlen(tmp, MAX_AUDIT_MESSAGE_LENGTH);
 #ifdef REORDER_HACK
-			if (i < NR_LINES_BUFFERED) {
+			if (strncmp(tmp, "type=EOE", 8) == 0) {
+				stop++;
+			} else if (strncmp(tmp, "type=SYSCALL", 12) == 0) {
+				start++;
+			}
+			if (i > NR_LINES_BUFFERED || start != stop) {
 				strncat(full_str_tmp, tmp, len);
 				i++;
 			} else {
@@ -491,6 +498,7 @@ int main(int argc, char *argv[])
 				len = reorder_input_hack(&sorted_tmp, full_str_tmp);
 				auparse_feed(au, sorted_tmp, len);
 				i = 0;
+				stop = stop = 0;
 				sorted_tmp[0] = '\0';
 				full_str_tmp[0] = '\0';
 			}
@@ -702,7 +710,7 @@ void syslog_json_msg(struct json_msg_type json_msg)
 #endif
 }
 
-/* The main event handling, parsing, collerating function */
+/* The main event handling, parsing function */
 static void handle_event(auparse_state_t *au,
 		auparse_cb_event_t cb_event_type, void *user_data)
 {
@@ -966,6 +974,31 @@ static void handle_event(auparse_state_t *au,
 	 */
 
 	if (category == CAT_EXECVE) {
+#ifdef IGNORE_EMPTY_EXECVE_COMMAND
+		/* Didn't get a type=EXECVE message? Then fullcmd will be empty.
+		 * This happens when executing scripts for example:
+		 * /usr/local/bin/test.sh => exec
+		 * => exec /bin/bash
+		 * => kernel sends execve syscall for the bash exec without an EXECVE message but a path set to:
+		 * dirname(script_path)/exec_name (e.g.: /usr/local/bin/bash in example above).
+		 * then fork again for the "real" command (e.g.: /bin/bash /local/bin/test.sh).
+		 * While it's correct we only really care for that last command (which has an EXECVE type)
+		 * Thus we're skipping the messages without EXECVE altogether, they're mostly noise for our purposes.
+		 * It's a little wasteful as we have to free the attributes we've allocated, but as messages can be out of order..
+		 * .. we don't really have a choice.
+		 */
+		if (strlen(fullcmd) == 0) {
+			attr_t *head = json_msg.details;
+			attr_t *prev;
+
+			while (head) {
+				prev = head;
+				head = head->next;
+				free(prev);
+			}
+			return;
+		}
+#endif
 		json_msg.category = "execve";
 		snprintf(json_msg.summary,
 					MAX_SUMMARY_LEN,
