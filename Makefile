@@ -20,6 +20,11 @@
 
 VERSION	:= 1.6
 
+#FPM options, suggestions:
+# --replaces audisp-cef
+# --rpm-digest sha512 --rpm-sign
+FPMOPTS :=
+
 # Turn this on if you get issues with out of sequence messages/missing event attributes
 # Only needed for some versions of libaudit - if you don't have problems, leave off.
 REORDER_HACK := 0
@@ -82,14 +87,12 @@ packaging: audisp-json au-json.conf audisp-json.conf
 	${INSTALL} -D -m 0755 audisp-json tmp/sbin/audisp-json
 
 rpm: packaging
-	fpm -C tmp -v ${VERSION} -n audisp-json --license GPL --vendor mozilla --description "json plugin for Linux Audit" \
+	fpm ${FPMOPTS} -C tmp -v ${VERSION} -n audisp-json --license GPL --vendor mozilla --description "json plugin for Linux Audit" \
 		--url https://github.com/gdestuynder/audisp-json -d audit-libs -d libcurl \
 		--config-files etc/audisp/plugins.d/au-json.conf --config-files etc/audisp/audisp-json.conf -s dir -t rpm .
-# Bonus options
-#		--rpm-digest sha512 --rpm-sign
 
 deb: packaging
-	fpm -C tmp -v ${VERSION} -n audisp-json --license GPL --vendor mozilla --description "json plugin for Linux Audit" \
+	fpm ${FPMOPTS} -C tmp -v ${VERSION} -n audisp-json --license GPL --vendor mozilla --description "json plugin for Linux Audit" \
 		--url https://github.com/gdestuynder/audisp-json -d auditd -d libcurl3 \
 		--deb-build-depends libaudit-dev --deb-build-depends libcurl4-openssl-dev \
 		--config-files etc/audisp/plugins.d/au-json.conf --config-files etc/audisp/audisp-json.conf -s dir -t deb .
