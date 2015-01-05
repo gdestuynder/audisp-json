@@ -33,29 +33,35 @@ That message is then transformed to MozDef JSON format with a type, such as "EXE
 Format example
 --------------
 
+.. note::
+
+        Values such as "mode": "(null)" are omitted by audisp-json to reduce the message size.
+        Only fields with actual values are sent/displayed.
+
+.. note::
+
+        All "details" field values are string in order to deal with document indexing issues when the type changes
+        between int and str for example (instead it's always str).
+
 .. code::
 
     {
         "category": "EXECVE",
             "details": {
-                "uid": 0,
-                "gid": 0,
-                "euid": 0,
-                "fsuid": 0,
-                "egid": 0,
-                "suid": 0,
-                "ouid": "(null)",
-                "ogid": "(null)",
-                "rdev": "(null"),
-                "sessionid": 20239,
-                "ppid": 29929,
-                "dev": "(null)",
-                "mode": "(null)",
+                "auditserial": "2939394",
+                "uid": "0",
+                "gid": "0",
+                "euid": "0",
+                "fsuid": "0",
+                "egid": "0",
+                "suid": "0",
+                "sessionid": "20239",
+                "ppid": "29929",
                 "cwd": "/home/kang",
                 "username": "root",
                 "auditedusername": "kang",
-                "auid": 1000,
-                "inode": 283892,
+                "auid": "1000",
+                "inode": "283892",
                 "parentprocess": "sudo",
                 "process": "/bin/cat",
                 "auditkey": "exe",
@@ -65,7 +71,7 @@ Format example
             "processid": 14619,
             "processname": "audisp-json",
             "severity": "INFO",
-            "summary": "sudo cat /etc/passwd",
+            "summary": "Execve: sudo cat /etc/passwd",
             "tags": [
                 "linux audit",
                 ],
@@ -74,7 +80,7 @@ Format example
 
 Fields reference
 ----------------
-.. note:: Integer fields are of type uint32_t (i.e. bigger then regular signed int).
+.. note:: Integer fields are of type uint32_t (i.e. bigger than regular signed int) even when stored as str. This means 4,294,967,295 is a valid value and does not represent -2,147,483,648.
 
 .. note:: See also 'man 8 auditctl' and/or https://access.redhat.com/site/documentation/en-US/Red_Hat_Enterprise_Linux/6/html/Security_Guide/sec-Understanding_Audit_Log_Files.html
 
@@ -86,6 +92,7 @@ Fields reference
 :summary: Human readable summary of the message.
 :tags: Various tags to indicate the audisp-json plugin version.
 :timestamp: UTC timestamp, or with timezone set.
+:details.auditserial: The message/event serial sent by audit. This is mainly used for debugging or as a reference between the Mozdef/JSON message and the host's original message.
 :details.uid,gid: User/group id who started the program.
 :details.username: Human readable alias of the uid.
 :details.euid: Effective user/group id the program is running as.
