@@ -734,12 +734,14 @@ static void handle_event(auparse_state_t *au,
 		CAT_ATTR,
 		CAT_APPARMOR,
 		CAT_CHMOD,
-		CAT_CHOWN
+		CAT_CHOWN,
+		CAT_PROMISC
 	} category_t;
 	category_t category;
 
 	const char *cwd = NULL, *argc = NULL, *cmd = NULL;
 	const char *path = NULL;
+	const char *dev = NULL;
 	const char *sys;
 	const char *syscall = NULL;
 	char fullcmd[MAX_ARG_LEN+1] = "\0";
@@ -750,6 +752,7 @@ static void handle_event(auparse_state_t *au,
 	char f[8];
 	int len, tmplen;
 	int argcount, i;
+	int promisc;
 	int havejson = 0;
 
 	/* wait until the lib gives up a full/ready event */
@@ -778,6 +781,40 @@ static void handle_event(auparse_state_t *au,
 		json_msg.details = json_add_attr(json_msg.details, "auditserial", serial);
 
 		switch (type) {
+			case AUDIT_ANOM_PROMISCUOUS:
+				dev = auparse_find_field(au, "dev");
+				if (!dev)
+					return;
+
+				havejson = 1;
+				category = CAT_PROMISC;
+
+				json_msg.details = json_add_attr(json_msg.details, "dev", dev);
+				goto_record_type(au, type);
+				json_msg.details = json_add_attr(json_msg.details, "promiscious", auparse_find_field(au, "prom"));
+				promisc = auparse_get_field_int(au);
+				goto_record_type(au, type);
+				json_msg.details = json_add_attr(json_msg.details, "old_promicious", auparse_find_field(au, "old_prom"));
+				goto_record_type(au, type);
+				if (auparse_find_field(au, "auid")) {
+					json_msg.details = json_add_attr(json_msg.details, "originaluser",
+														get_username(auparse_get_field_int(au)));
+
+					json_msg.details = json_add_attr(json_msg.details, "originaluid",  auparse_get_field_str(au));
+				}
+				goto_record_type(au, type);
+
+				if (auparse_find_field(au, "uid")) {
+					json_msg.details = json_add_attr(json_msg.details, "user", get_username(auparse_get_field_int(au)));
+					json_msg.details = json_add_attr(json_msg.details, "uid", auparse_get_field_str(au));
+				}
+				goto_record_type(au, type);
+				json_msg.details = json_add_attr(json_msg.details, "gid", auparse_find_field(au, "gid"));
+				goto_record_type(au, type);
+				json_msg.details = json_add_attr(json_msg.details, "session", auparse_find_field(au, "ses"));
+				goto_record_type(au, type);
+				break;
+
 			case AUDIT_AVC:
 				argc = auparse_find_field(au, "apparmor");
 				if (!argc)
@@ -821,6 +858,7 @@ static void handle_event(auparse_state_t *au,
 				json_msg.details = json_add_attr(json_msg.details, "aaflags", auparse_find_field(au, "flags"));
 				goto_record_type(au, type);
 				break;
+
 			case AUDIT_EXECVE:
 				argc = auparse_find_field(au, "argc");
 				if (argc)
@@ -846,6 +884,7 @@ static void handle_event(auparse_state_t *au,
 				}
 				json_msg.details = json_add_attr(json_msg.details, "command", fullcmd);
 				break;
+
 			case AUDIT_CWD:
 				cwd = auparse_find_field(au, "cwd");
 				if (cwd) {
@@ -853,6 +892,7 @@ static void handle_event(auparse_state_t *au,
 					json_msg.details = json_add_attr(json_msg.details, "cwd", auparse_find_field(au, "cwd"));
 				}
 				break;
+
 			case AUDIT_PATH:
 				path = auparse_find_field(au, "name");
 				json_msg.details = json_add_attr(json_msg.details, "path", path);
@@ -870,6 +910,7 @@ static void handle_event(auparse_state_t *au,
 				json_msg.details = json_add_attr(json_msg.details, "rdev", auparse_find_field(au, "rdev"));
 				goto_record_type(au, type);
 				break;
+
 			case AUDIT_SYSCALL:
 				syscall = auparse_find_field(au, "syscall");
 				if (!syscall) {
@@ -906,6 +947,8 @@ static void handle_event(auparse_state_t *au,
 				} else if (!strncmp(sys, "execve", 6)) {
 					havejson = 1;
 					category = CAT_EXECVE;
+				} else if (!strncmp(sys, "ioctl", 6)) {
+					category = CAT_PROMISC;
 				} else {
 					syslog(LOG_INFO, "System call %u %s is not supported by %s", i, sys, PROGRAM_NAME);
 				}
@@ -956,6 +999,7 @@ static void handle_event(auparse_state_t *au,
 				json_msg.details = json_add_attr(json_msg.details, "session", auparse_find_field(au, "ses"));
 				goto_record_type(au, type);
 				break;
+
 			default:
 				break;
 		}
@@ -1033,6 +1077,12 @@ static void handle_event(auparse_state_t *au,
 		snprintf(json_msg.summary,
 					MAX_SUMMARY_LEN,
 					"Ptrace");
+	} else if (category == CAT_PROMISC) {
+		json_msg.category = "promiscuous";
+		snprintf(json_msg.summary,
+					MAX_SUMMARY_LEN,
+					"Promisc: Interface %s set promiscous %s",
+					unescape(dev), promisc ? "on": "off");
 	}
 
 	/* syslog_json_msg() also frees json_msg.details when called. */

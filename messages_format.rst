@@ -124,3 +124,4 @@ Implemented message categories
 :PTRACE: process trace, gdb/strace do that for example, 'ptrace' syscall in audit.rules.
 :EXECVE: execute program, 'execve' syscall in audit.rules.
 :AVC_APPARMOR: AppArmor messages, generally used on Ubuntu. Not handled by audit.rules.
+:ANOM_PROMISCUOUS: network interface promiscuous setting on/off. Handled by 'ioctl' syscall in audit.rules.
