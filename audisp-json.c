@@ -583,7 +583,7 @@ attr_t *json_add_attr(attr_t *list, const char *st, const char *val)
 {
 	attr_t *new;
 
-	if (st == NULL || st == "(null)" || val == NULL || val == "(null)") {
+	if (st == NULL || !strncmp(st, "(null)", 6) || val == NULL || !strncmp(val, "(null)", 6)) {
 		return list;
 	}
 
