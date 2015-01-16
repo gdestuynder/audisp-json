@@ -217,7 +217,9 @@ void curl_perform(void)
 			case 0:
 			default:
 				/* This also sets curl_nr_h to exactly 0 if all the handles have been processed. */
-				ret = curl_multi_perform(multi_h, &curl_nr_h);
+				while ((ret = curl_multi_perform(multi_h, &curl_nr_h)) && (ret == CURLM_CALL_MULTI_PERFORM)) {
+					continue;
+				}
 				if (ret != CURLM_OK) {
 					syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
 				}
