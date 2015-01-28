@@ -53,16 +53,9 @@ Example for rsyslog
 
     #Drop native audit messages from the kernel (may happen is auditd dies, and may kill the system otherwise)
     :msg, regex, "type=[0-9]* audit" ~
-    #Sent audit rate limit errors directly to the remote syslog server
-    :msg, contains, "rate limit exceeded" @<SYSLOG_SERVER_IP_HERE>
-    :msg, contains, "audit_lost=" @<SYSLOG_SERVER_IP_HERE>
     #Drop audit sid msg (work-around until RH fixes the kernel - should be fixed in RHEL7 and recent RHEL6)
     :msg, contains, "error converting sid to string" ~
 
-    #Don't log auditd messages to disk, we're logging way too much stuff for that
-    *.info;local5.none			/var/log/messages
-    #Log remotely instead
-    local5.*					@<SYSLOG_SERVER_IP_HERE>
 
 Example for syslog-ng
 =====================
@@ -70,10 +63,8 @@ Example for syslog-ng
  ::
 
     source s_syslog { unix-dgram("/dev/log"); };
-    filter f_auditd { message("type=[0-9]* audit") and message("rate limit exceeded") and message("audit_lost=") and facility(local5); };
-    destination d_logserver { udp("<SYSLOG_SERVER_IP_HERE>" port(514)); };
-    log{ source(s_syslog); filter(f_auditd); destination(d_logserver); };
-    # If you want to "not log" auditd messages, negate the same filter to your other log items
+    filter f_not_auditd { not message("type=[0-9]* audit") or not message("error converting sid to string"); };
+    log{ source(s_syslog);f ilter(f_not_auditd); destination(d_logserver); };
 
 Message handling
 ----------------
@@ -88,7 +79,7 @@ Supported messages are listed in the document messages_format.rst
 Configuration file
 ==================
 
-The audisp-json.conf file has 3 options:
+The audisp-json.conf file has 4 options:
 
 :mozdef_url: Any server supporting JSON MozDef messages
 :ssl_verify: Yes or no. Only use no for testing purposes.
