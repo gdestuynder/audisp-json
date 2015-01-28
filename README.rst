@@ -39,12 +39,8 @@ They're self explanatory.
 Deal with auditd quirks, or how to make auditd useable in prod
 --------------------------------------------------------------
 
-We're assuming you're logging auditd stuff to LOCAL5 here. Replace <SYSLOG_SERVER_IP_HERE> by your syslogger.
-Due to the nature/sensitivity of the logs, using TLS as transport is highly recommended.
-
-These examples filter out messages that may kill your log if auditd goes down for any reason, or general
-messages which you may want to forward but to keep in their own faciilty, or simply not log to disk, for
-useability reasons.
+These examples filter out messages that may clutter your log or/and DOS yourself (high I/O) if auditd goes
+down for any reason.
 
 Example for rsyslog
 ===================
