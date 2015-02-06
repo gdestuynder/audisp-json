@@ -398,6 +398,10 @@ int main(int argc, char *argv[])
 	sigaction(SIGTERM, &sa, NULL);
 	sa.sa_handler = hup_handler;
 
+	if (load_config(&config, CONFIG_FILE))
+		if (load_config(&config, CONFIG_FILE_LOCAL))
+			return 1;
+
 	openlog(PROGRAM_NAME, LOG_CONS, LOG_DAEMON);
 
 	if (gethostname(nodename, 63)) {
@@ -413,10 +417,6 @@ int main(int argc, char *argv[])
 	} else {
 		hostname = strdup(ht->h_name);
 	}
-
-	if (load_config(&config, CONFIG_FILE))
-		if (load_config(&config, CONFIG_FILE_LOCAL))
-			return 1;
 
 	au = auparse_init(AUSOURCE_FEED, NULL);
 	if (au == NULL) {
