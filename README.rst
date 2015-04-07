@@ -36,6 +36,13 @@ They're self explanatory.
 - make uninstall
 - make clean
 
+Mozilla build targets
+=====================
+We previously used audisp-cef, so we would want to mark that package as obsolete.
+
+- make rpm FPMOPTS="--replaces audisp-cef"
+- make deb FPMOPTS="--replaces audisp-cef"
+
 Deal with auditd quirks, or how to make auditd useable in prod
 --------------------------------------------------------------
 
