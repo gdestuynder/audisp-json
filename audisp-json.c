@@ -737,7 +737,8 @@ static void handle_event(auparse_state_t *au,
 		CAT_APPARMOR,
 		CAT_CHMOD,
 		CAT_CHOWN,
-		CAT_PROMISC
+		CAT_PROMISC,
+		CAT_TIME
 	} category_t;
 	category_t category;
 
@@ -951,6 +952,8 @@ static void handle_event(auparse_state_t *au,
 					category = CAT_EXECVE;
 				} else if (!strncmp(sys, "ioctl", 6)) {
 					category = CAT_PROMISC;
+				} else if (!strncmp(sys, "adjtimex", 6)) {
+					category = CAT_TIME;
 				} else {
 					syslog(LOG_INFO, "System call %u %s is not supported by %s", i, sys, PROGRAM_NAME);
 				}
@@ -1079,6 +1082,11 @@ static void handle_event(auparse_state_t *au,
 		snprintf(json_msg.summary,
 					MAX_SUMMARY_LEN,
 					"Ptrace");
+	} else if (category == CAT_TIME) {
+		json_msg.category = "time";
+		snprintf(json_msg.summary,
+					MAX_SUMMARY_LEN,
+					"time has been modified");
 	} else if (category == CAT_PROMISC) {
 		json_msg.category = "promiscuous";
 		snprintf(json_msg.summary,
