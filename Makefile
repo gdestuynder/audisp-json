@@ -18,7 +18,7 @@
 # Authors:
 #   Guillaume Destuynder <gdestuynder@mozilla.com>
 
-VERSION	:= 1.9
+VERSION	:= 1.10
 
 #FPM options, suggestions:
 # --replaces audisp-cef
