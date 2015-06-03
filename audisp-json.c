@@ -36,6 +36,7 @@
 #include <netdb.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <limits.h>
 #include <curl/curl.h>
 #include "libaudit.h"
 #include "auparse.h"
@@ -179,10 +180,11 @@ void prepare_curl_handle(void)
 }
 
 /* select and fetch urls */
-void curl_perform(void)
+void curl_perform(int max_curl_runs)
 {
 	int msgs_left;
-	int curl_nr_h = -1;
+	int curl_nr_h = INT_MAX;
+	int curl_runs = 0;
 	int maxfd = -1;
 	long http_code = 0;
 	struct timeval timeout;
@@ -191,6 +193,14 @@ void curl_perform(void)
 	CURLcode ret;
 
 	while (curl_nr_h != 0) {
+		curl_runs += 1;
+		/* Gives a chance for other events to come in
+		 * You want this set to INT_MAX for the final cleanup call, to give a reasonable chance for most/all handles
+		 * to be are processed.
+		 */
+		if (curl_runs > max_curl_runs)
+			break;
+
 		fd_set r, w, e;
 		FD_ZERO(&r);
 		FD_ZERO(&w);
@@ -201,8 +211,10 @@ void curl_perform(void)
 		if (ret != CURLM_OK) {
 			syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
 		}
-		timeout.tv_sec = 1;
-		timeout.tv_usec = 0;
+		timeout.tv_sec = 0;
+		/* 100 ms minimum timeout - ~= approx time for mozdef to process the message */
+		timeout.tv_usec = 100000;
+
 		if (curl_timeout >= 0) {
 			timeout.tv_sec = curl_timeout / 1000;
 			if (timeout.tv_sec > 1)
@@ -210,6 +222,7 @@ void curl_perform(void)
 			else
 				timeout.tv_usec = (curl_timeout % 1000) * 1000;
 		}
+
 		ret = curl_multi_fdset(multi_h, &r, &w, &e, &maxfd);
 		if (ret != CURLM_OK) {
 			syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
@@ -538,7 +551,7 @@ int main(int argc, char *argv[])
 	auparse_flush_feed(au);
 
 	while (!ring_empty(&msg_list)) {
-		curl_perform();
+		curl_perform(INT_MAX);
 	}
 
 	auparse_destroy(au);
@@ -1120,5 +1133,5 @@ static void handle_event(auparse_state_t *au,
 
 	/* syslog_json_msg() also frees json_msg.details when called. */
 	syslog_json_msg(json_msg);
-	curl_perform();
+	curl_perform(5);
 }
