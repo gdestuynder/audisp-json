@@ -30,6 +30,7 @@ typedef struct json_conf
 {
 	const char *mozdef_url;
 	const char *curl_cainfo;
+	const char *curl_logfile;
 	int ssl_verify;
 	int curl_verbose;
 } json_conf_t;

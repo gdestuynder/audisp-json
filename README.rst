@@ -87,4 +87,6 @@ The audisp-json.conf file has 4 options:
 :mozdef_url: Any server supporting JSON MozDef messages
 :ssl_verify: Yes or no. Only use no for testing purposes.
 :curl_verbose: Enables curl verbose mode for debugging. start audisp-json in the foreground to see messages.
+:curl_logfile: Path to a file to log curl debug messages to. Most useful with curl_verbose also set. Otherwise, message
+               go to stderr.
 :curl_cainfo: Specify the path to a single CA certificate, if needed. When not specified, system's CA bundle is used.

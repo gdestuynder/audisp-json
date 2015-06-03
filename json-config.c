@@ -65,6 +65,8 @@ static int ssl_parser(struct nv_pair *nv, int line,
 		json_conf_t *config);
 static int curl_parser(struct nv_pair *nv, int line,
 		json_conf_t *config);
+static int curl_fparser(struct nv_pair *nv, int line,
+		json_conf_t *config);
 
 static const struct kw_pair keywords[] =
 {
@@ -72,6 +74,7 @@ static const struct kw_pair keywords[] =
 	{"curl_cainfo", curl_ca_parser,	0},
 	{"ssl_verify",	ssl_parser,	0},
 	{"curl_verbose", curl_parser,	0},
+	{"curl_logfile", curl_fparser,	0},
 };
 
 /*
@@ -314,6 +317,16 @@ static int curl_parser(struct nv_pair *nv, int line,
 		}
 	}
 
+	return 0;
+}
+
+static int curl_fparser(struct nv_pair *nv, int line,
+		json_conf_t *config)
+{
+	if (nv->value)
+		config->curl_logfile = strdup(nv->value);
+	else
+		config->curl_logfile = NULL;
 	return 0;
 }
 

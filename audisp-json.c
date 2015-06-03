@@ -81,6 +81,7 @@ static auparse_state_t *au = NULL;
 static int machine = -1;
 
 static long int curl_timeout = -1;
+FILE *curl_logfile;
 CURLM *multi_h;
 CURL *easy_h;
 struct curl_slist *slist1;
@@ -162,6 +163,14 @@ void prepare_curl_handle(void)
  * to be conditionally enabled
  */
 //	curl_easy_setopt(easy_h, CURLOPT_TCP_KEEPALIVE, 1L);
+/* if logfile is set, log there instead of stderr.
+ * this is generally useful in combination with the below curl_verbose option,
+ * since grabbing stderr from a running plugin may be difficult.
+ */
+	if (config.curl_logfile != NULL) {
+		curl_logfile = fopen(config.curl_logfile, "ab");
+		curl_easy_setopt(easy_h, CURLOPT_STDERR, curl_logfile);
+	}
 	curl_easy_setopt(easy_h, CURLOPT_VERBOSE, config.curl_verbose);
 	curl_easy_setopt(easy_h, CURLOPT_TIMEOUT_MS, MAX_CURL_GLOBAL_TIMEOUT);
 	curl_easy_setopt(easy_h, CURLOPT_SSL_VERIFYHOST, config.ssl_verify);
@@ -521,6 +530,8 @@ int main(int argc, char *argv[])
 
 	auparse_destroy(au);
 	curl_global_cleanup();
+	if (curl_logfile)
+		fclose(curl_logfile);
 	free(msg_list.data);
 	free_config(&config);
 	free(hostname);
