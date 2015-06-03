@@ -73,8 +73,8 @@
 
 extern int h_errno;
 
-static volatile int stop = 0;
-static volatile int hup = 0;
+static volatile int sig_stop = 0;
+static volatile int sig_hup = 0;
 static json_conf_t config;
 static char *hostname = NULL;
 static auparse_state_t *au = NULL;
@@ -262,19 +262,19 @@ void curl_perform(void)
 static void handle_event(auparse_state_t *au,
 		auparse_cb_event_t cb_event_type, void *user_data);
 
-static void term_handler( int sig )
+static void term_handler(int sig)
 {
-	stop = 1;
+	sig_stop = 1;
 }
 
-static void hup_handler( int sig )
+static void hup_handler(int sig)
 {
-	hup = 1;
+	sig_hup = 1;
 }
 
 static void reload_config(void)
 {
-	hup = 0;
+	sig_hup = 0;
 }
 
 #ifdef REORDER_HACK
@@ -484,7 +484,7 @@ int main(int argc, char *argv[])
 	 * call our callback (handle_event) every time it finds a new complete message to parse.
 	 */
 	do {
-		if (hup)
+		if (sig_hup)
 			reload_config();
 
 		/* NOTE: There's quite a few reasons for auparse_feed() from libaudit to fail parsing silently so we have to be careful here.
@@ -520,7 +520,7 @@ int main(int argc, char *argv[])
 
 		if (feof(stdin))
 			break;
-	} while (stop == 0);
+	} while (sig_stop == 0);
 
 	auparse_flush_feed(au);
 
