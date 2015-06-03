@@ -39,12 +39,12 @@ ifneq ($(IGNORE_EMPTY_EXECVE_COMMAND),0)
 	IGNORE_EMPTY_EXECVE_COMMANDF	:= -DIGNORE_EMPTY_EXECVE_COMMAND
 endif
 
-DEBUG	:= 
+DEBUG	:=
 ifeq ($(DEBUG),2)
 	DEBUGF	:= -DDEBUG
-	CFLAGS	:= -fPIE -DPIE -g -O0 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all 
+	CFLAGS	:= -Wall -fPIE -DPIE -g -O0 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all
 else ifeq ($(DEBUG),1)
-	CFLAGS	:= -fPIE -DPIE -g -O0 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all 
+	CFLAGS	:= -fPIE -DPIE -g -O0 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all
 else
 	CFLAGS	:= -fPIE -DPIE -g -O2 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all -D_FORTIFY_SOURCE=2
 endif

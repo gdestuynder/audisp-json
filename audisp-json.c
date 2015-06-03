@@ -188,7 +188,6 @@ void curl_perform(void)
 	struct timeval timeout;
 	int rc;
 	CURLMsg *msg;
-	CURL *eh;
 	CURLcode ret;
 
 	while (curl_nr_h != 0) {
@@ -237,7 +236,7 @@ void curl_perform(void)
 	}
 
 	/* Cleanup completed handles */
-	while (msg = curl_multi_info_read(multi_h, &msgs_left)) {
+	while ((msg = curl_multi_info_read(multi_h, &msgs_left))) {
 		if (msg->msg == CURLMSG_DONE) {
 			ret = curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &http_code);
 			if (ret != CURLM_OK) {
@@ -409,7 +408,6 @@ int main(int argc, char *argv[])
 	struct sigaction sa;
 	struct hostent *ht;
 	char nodename[64];
-	CURLMcode ret;
 
 	sa.sa_flags = 0;
 	sigemptyset(&sa.sa_mask);
@@ -742,7 +740,7 @@ void syslog_json_msg(struct json_msg_type json_msg)
 static void handle_event(auparse_state_t *au,
 		auparse_cb_event_t cb_event_type, void *user_data)
 {
-	int type, rc, num=0;
+	int type, num=0;
 
 	struct json_msg_type json_msg = {
 		.category		= NULL,
@@ -798,7 +796,6 @@ static void handle_event(auparse_state_t *au,
 
 	while (auparse_goto_record_num(au, num) > 0) {
 		type = auparse_get_type(au);
-		rc = 0;
 
 		if (!auparse_first_field(au))
 			continue;
