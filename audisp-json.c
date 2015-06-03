@@ -262,6 +262,11 @@ void curl_perform(void)
 static void handle_event(auparse_state_t *au,
 		auparse_cb_event_t cb_event_type, void *user_data);
 
+static void int_handler(int sig)
+{
+	sig_stop = 1;
+}
+
 static void term_handler(int sig)
 {
 	sig_stop = 1;
@@ -405,7 +410,10 @@ int main(int argc, char *argv[])
 	sigemptyset(&sa.sa_mask);
 	sa.sa_handler = term_handler;
 	sigaction(SIGTERM, &sa, NULL);
+	sa.sa_handler = int_handler;
+	sigaction(SIGINT, &sa, NULL);
 	sa.sa_handler = hup_handler;
+	sigaction(SIGHUP, &sa, NULL);
 
 	if (load_config(&config, CONFIG_FILE))
 		if (load_config(&config, CONFIG_FILE_LOCAL))
@@ -484,9 +492,6 @@ int main(int argc, char *argv[])
 	 * call our callback (handle_event) every time it finds a new complete message to parse.
 	 */
 	do {
-		if (sig_hup)
-			reload_config();
-
 		/* NOTE: There's quite a few reasons for auparse_feed() from libaudit to fail parsing silently so we have to be careful here.
 		 * Anything passed to it:
 		 * - must have the same timestamp for a given event id. (kernel takes care of that, if not, you're out of luck).
@@ -494,6 +499,11 @@ int main(int argc, char *argv[])
 		 * - must always have event ids in sequential order. (REORDER_HACK takes care of that, it also buffer lines, since, well, it needs to).
 		 */
 		while (fgets_unlocked(tmp, MAX_AUDIT_MESSAGE_LENGTH, stdin)) {
+			if (sig_hup)
+				reload_config();
+			if (sig_stop)
+				break;
+
 			len = strnlen(tmp, MAX_AUDIT_MESSAGE_LENGTH);
 #ifdef REORDER_HACK
 			if (strncmp(tmp, "type=EOE", 8) == 0) {
