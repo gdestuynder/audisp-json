@@ -264,6 +264,11 @@ static void handle_event(auparse_state_t *au,
 
 static void int_handler(int sig)
 {
+	if (sig_stop == 1) {
+		fprintf(stderr, "Repeated keyboard interrupt signal, forcing unclean program termination.\n");
+		exit(127);
+	}
+
 	sig_stop = 1;
 }
 
