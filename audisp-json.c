@@ -550,6 +550,11 @@ int main(int argc, char *argv[])
 
 	auparse_flush_feed(au);
 
+	/* Attempt clearing any remaining call even if the ring buffer is empty,
+	 * since the curl buffer might not be empty.
+	 */
+	curl_perform(INT_MAX);
+
 	while (!ring_empty(&msg_list)) {
 		curl_perform(INT_MAX);
 	}
@@ -1133,5 +1138,5 @@ static void handle_event(auparse_state_t *au,
 
 	/* syslog_json_msg() also frees json_msg.details when called. */
 	syslog_json_msg(json_msg);
-	curl_perform(5);
+	curl_perform(2);
 }
