@@ -13,6 +13,10 @@ The JSON format used is MozDef message format.
 
 Regular audit log messages and audisp-json error, info messages still use syslog.
 
+
+Due to the ring buffer filling up when the front-end HTTP server does not process fast enough, the program may slowly
+grow in memory for a while on busy systems. It'll stop at 512 messages (hard-coded) buffered.
+
 Building
 --------
 
@@ -68,6 +72,13 @@ Example for syslog-ng
     source s_syslog { unix-dgram("/dev/log"); };
     filter f_not_auditd { not message("type=[0-9]* audit") or not message("error converting sid to string"); };
     log{ source(s_syslog);f ilter(f_not_auditd); destination(d_logserver); };
+
+Misc other things to do
+=======================
+
+- It is suggested to bump the audispd queue to adjust for extremely busy systems, for ex. q_depth=512.
+- You will also probably need to bump the kernel-side buffer and change the rate limit in audit.rules, for ex. -b 16384
+  -r 500.
 
 Message handling
 ----------------
