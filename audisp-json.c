@@ -36,7 +36,6 @@
 #include <netdb.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <limits.h>
 #include <curl/curl.h>
 #include "libaudit.h"
 #include "auparse.h"
@@ -86,6 +85,7 @@ FILE *curl_logfile;
 CURLM *multi_h;
 CURL *easy_h;
 struct curl_slist *slist1;
+int curl_nr_h = -1;
 
 typedef struct { char *val; } msg_t;
 typedef struct ring_buf_msg {
@@ -134,14 +134,6 @@ int ring_add(ring_buf_msg_t *rb, int p)
 	return (p + 1)&(2*rb->size-1);
 }
 
-void ring_write(ring_buf_msg_t *rb, char *val)
-{
-	rb->data[rb->end&(rb->size-1)].val = val;
-	if (ring_full(rb))
-		rb->start = ring_add(rb, rb->start);
-	rb->end = ring_add(rb, rb->end);
-}
-
 char *ring_read(ring_buf_msg_t *rb)
 {
 	char *val;
@@ -150,7 +142,16 @@ char *ring_read(ring_buf_msg_t *rb)
 	return val;
 }
 
-void prepare_curl_handle(void)
+void ring_write(ring_buf_msg_t *rb, char *val)
+{
+	if (ring_full(rb)) {
+		free((char *)ring_read(rb));
+	}
+	rb->data[rb->end&(rb->size-1)].val = val;
+	rb->end = ring_add(rb, rb->end);
+}
+
+void prepare_curl_handle(char *new_msg)
 {
 	curl_easy_reset(easy_h);
 	curl_easy_setopt(easy_h, CURLOPT_URL, config.mozdef_url);
@@ -177,76 +178,33 @@ void prepare_curl_handle(void)
 	curl_easy_setopt(easy_h, CURLOPT_SSL_VERIFYHOST, config.ssl_verify);
 	curl_easy_setopt(easy_h, CURLOPT_SSL_VERIFYPEER, config.ssl_verify);
 	curl_easy_setopt(easy_h, CURLOPT_CAINFO, config.curl_cainfo);
+	curl_easy_setopt(easy_h, CURLOPT_COPYPOSTFIELDS, new_msg);
+}
+
+int ring_check_queue()
+{
+	if (ring_empty(&msg_list))
+		return 1;
+
+	char *new_msg = ring_read(&msg_list);
+	curl_multi_remove_handle(multi_h, easy_h);
+	prepare_curl_handle(new_msg);
+	free(new_msg);
+	curl_multi_add_handle(multi_h, easy_h);
+	return 0;
 }
 
 /* select and fetch urls */
-void curl_perform(int max_curl_runs)
+void curl_perform(void)
 {
 	int msgs_left;
-	int curl_nr_h = INT_MAX;
-	int curl_runs = 0;
 	int maxfd = -1;
 	long http_code = 0;
 	struct timeval timeout;
 	int rc;
 	CURLMsg *msg;
 	CURLcode ret;
-
-	while (curl_nr_h != 0) {
-		curl_runs += 1;
-		/* Gives a chance for other events to come in
-		 * You want this set to INT_MAX for the final cleanup call, to give a reasonable chance for most/all handles
-		 * to be are processed.
-		 */
-		if (curl_runs > max_curl_runs)
-			break;
-
-		fd_set r, w, e;
-		FD_ZERO(&r);
-		FD_ZERO(&w);
-		FD_ZERO(&e);
-
-		/* With cURL you get the timeout you have to wait back from the library, so we use that for the select() call */
-		ret = curl_multi_timeout(multi_h, &curl_timeout);
-		if (ret != CURLM_OK) {
-			syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
-		}
-		timeout.tv_sec = 0;
-		/* 100 ms minimum timeout - ~= approx time for mozdef to process the message */
-		timeout.tv_usec = 100000;
-
-		if (curl_timeout >= 0) {
-			timeout.tv_sec = curl_timeout / 1000;
-			if (timeout.tv_sec > 1)
-				timeout.tv_sec = 1;
-			else
-				timeout.tv_usec = (curl_timeout % 1000) * 1000;
-		}
-
-		ret = curl_multi_fdset(multi_h, &r, &w, &e, &maxfd);
-		if (ret != CURLM_OK) {
-			syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
-			return;
-		}
-
-		rc = select(maxfd+1, &r, &w, &e, &timeout);
-
-		switch(rc) {
-			case -1:
-				syslog(LOG_ERR, "%s", strerror(errno));
-				break;
-			case 0:
-			default:
-				/* This also sets curl_nr_h to exactly 0 if all the handles have been processed. */
-				while ((ret = curl_multi_perform(multi_h, &curl_nr_h)) && (ret == CURLM_CALL_MULTI_PERFORM)) {
-					continue;
-				}
-				if (ret != CURLM_OK) {
-					syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
-				}
-				break;
-		}
-	}
+	fd_set r, w, e;
 
 	/* Cleanup completed handles */
 	while ((msg = curl_multi_info_read(multi_h, &msgs_left))) {
@@ -261,13 +219,58 @@ void curl_perform(int max_curl_runs)
 		}
 	}
 
-	while (!ring_empty(&msg_list)) {
-		char *new_msg = ring_read(&msg_list);
-		curl_multi_remove_handle(multi_h, easy_h);
-		prepare_curl_handle();
-		curl_easy_setopt(easy_h, CURLOPT_COPYPOSTFIELDS, new_msg);
-		free(new_msg);
-		curl_multi_add_handle(multi_h, easy_h);
+	/* cURL will set this to 0 when there is no transfer left to process,
+	 * signaling we can sent the next message. ring_check_queue() will insert the next message from the queue
+	 * into the multi_h.
+	 * If there's no message in the queue, we bail for now.
+	 */
+	if (curl_nr_h == 0) {
+		curl_nr_h = -1;
+		if (ring_check_queue()) {
+			return;
+		}
+	}
+
+	FD_ZERO(&r);
+	FD_ZERO(&w);
+	FD_ZERO(&e);
+
+	/* With cURL you get the timeout you have to wait back from the library, so we use that for the select() call */
+	ret = curl_multi_timeout(multi_h, &curl_timeout);
+	if (ret != CURLM_OK) {
+		syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
+	}
+	timeout.tv_sec = 0;
+	timeout.tv_usec = 100000;
+	if (curl_timeout >= 0) {
+		timeout.tv_sec = curl_timeout / 1000;
+		if (timeout.tv_sec > 1)
+			timeout.tv_sec = 1;
+		else
+			timeout.tv_usec = (curl_timeout % 1000) * 1000;
+	}
+	ret = curl_multi_fdset(multi_h, &r, &w, &e, &maxfd);
+	if (ret != CURLM_OK) {
+		syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
+		return;
+	}
+
+	rc = select(maxfd+1, &r, &w, &e, &timeout);
+
+	switch(rc) {
+		case -1:
+			syslog(LOG_ERR, "%s", strerror(errno));
+			break;
+		case 0:
+		default:
+			/* This also sets curl_nr_h to exactly 0 if all the handles have been processed. */
+			while ((ret = curl_multi_perform(multi_h, &curl_nr_h)) && (ret == CURLM_CALL_MULTI_PERFORM)) {
+				continue;
+			}
+			if (ret != CURLM_OK) {
+				syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
+			}
+			break;
 	}
 }
 
@@ -550,16 +553,12 @@ int main(int argc, char *argv[])
 
 	auparse_flush_feed(au);
 
-	/* Attempt clearing any remaining call even if the ring buffer is empty,
-	 * since the curl buffer might not be empty.
-	 */
-	curl_perform(INT_MAX);
-
-	while (!ring_empty(&msg_list)) {
-		curl_perform(INT_MAX);
-	}
+	while (!ring_empty(&msg_list))
+		curl_perform();
 
 	auparse_destroy(au);
+	curl_easy_cleanup(easy_h);
+	curl_multi_cleanup(multi_h);
 	curl_global_cleanup();
 	if (curl_logfile)
 		fclose(curl_logfile);
@@ -623,7 +622,7 @@ char *unescape(const char *in)
  * @const char *st: the attribute name to add
  * @const char *val: the attribut value - if NULL, we won't add the field to the json message at all.
  */
-attr_t *json_add_attr(attr_t *list, const char *st, const char *val)
+attr_t *_json_add_attr(attr_t *list, const char *st, char *val, int freeme)
 {
 	attr_t *new;
 
@@ -638,7 +637,23 @@ attr_t *json_add_attr(attr_t *list, const char *st, const char *val)
 	}
 	snprintf(new->value, MAX_ATTR_SIZE, "\t\t\"%s\": \"%s\"", st, unescape(val));
 	new->next = list;
+
+	if (freeme) {
+		free(val);
+	}
+
 	return new;
+}
+
+/* Convenience wrappers for _json_add_attr */
+attr_t *json_add_attr_free(attr_t *list, const char *st, char *val)
+{
+	return _json_add_attr(list, st, val, 1);
+}
+
+attr_t *json_add_attr(attr_t *list, const char *st, const char *val)
+{
+	return _json_add_attr(list, st, (char *)val, 0);
 }
 
 void json_del_attrs(attr_t *head)
@@ -651,7 +666,7 @@ void json_del_attrs(attr_t *head)
 	}
 }
 
-/* Resolve uid to username */
+/* Resolve uid to username - returns malloc'd value */
 char *get_username(int uid)
 {
 	size_t bufsize;
@@ -677,7 +692,7 @@ char *get_username(int uid)
 	if (result == NULL) {
 		return NULL;
 	}
-	name = strdupa(pwd.pw_name);
+	name = strdup(pwd.pw_name);
 	return name;
 }
 
@@ -702,7 +717,9 @@ char *get_proc_name(int pid)
 	return proc;
 }
 
-/* This creates the JSON message we'll send over by deserializing the C struct into a char array */
+/* This creates the JSON message we'll send over by deserializing the C struct into a char array
+ * the function name is rather historical, since this does not send to syslog anymore.
+ */
 void syslog_json_msg(struct json_msg_type json_msg)
 {
 	attr_t *head = json_msg.details;
@@ -841,7 +858,7 @@ static void handle_event(auparse_state_t *au,
 				json_msg.details = json_add_attr(json_msg.details, "old_promicious", auparse_find_field(au, "old_prom"));
 				goto_record_type(au, type);
 				if (auparse_find_field(au, "auid")) {
-					json_msg.details = json_add_attr(json_msg.details, "originaluser",
+					json_msg.details = json_add_attr_free(json_msg.details, "originaluser",
 														get_username(auparse_get_field_int(au)));
 
 					json_msg.details = json_add_attr(json_msg.details, "originaluid",  auparse_get_field_str(au));
@@ -849,7 +866,7 @@ static void handle_event(auparse_state_t *au,
 				goto_record_type(au, type);
 
 				if (auparse_find_field(au, "uid")) {
-					json_msg.details = json_add_attr(json_msg.details, "user", get_username(auparse_get_field_int(au)));
+					json_msg.details = json_add_attr_free(json_msg.details, "user", get_username(auparse_get_field_int(au)));
 					json_msg.details = json_add_attr(json_msg.details, "uid", auparse_get_field_str(au));
 				}
 				goto_record_type(au, type);
@@ -1009,7 +1026,7 @@ static void handle_event(auparse_state_t *au,
 				goto_record_type(au, type);
 
 				if (auparse_find_field(au, "auid")) {
-					json_msg.details = json_add_attr(json_msg.details, "originaluser",
+					json_msg.details = json_add_attr_free(json_msg.details, "originaluser",
 														get_username(auparse_get_field_int(au)));
 
 					json_msg.details = json_add_attr(json_msg.details, "originaluid",  auparse_get_field_str(au));
@@ -1017,7 +1034,7 @@ static void handle_event(auparse_state_t *au,
 				goto_record_type(au, type);
 
 				if (auparse_find_field(au, "uid")) {
-					json_msg.details = json_add_attr(json_msg.details, "user", get_username(auparse_get_field_int(au)));
+					json_msg.details = json_add_attr_free(json_msg.details, "user", get_username(auparse_get_field_int(au)));
 					json_msg.details = json_add_attr(json_msg.details, "uid", auparse_get_field_str(au));
 				}
 				goto_record_type(au, type);
@@ -1138,5 +1155,5 @@ static void handle_event(auparse_state_t *au,
 
 	/* syslog_json_msg() also frees json_msg.details when called. */
 	syslog_json_msg(json_msg);
-	curl_perform(2);
+	curl_perform();
 }
