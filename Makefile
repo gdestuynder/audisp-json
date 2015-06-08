@@ -27,8 +27,8 @@ FPMOPTS :=
 
 # Turn this on if you get issues with out of sequence messages/missing event attributes
 # Only needed for some versions of libaudit - if you don't have problems, leave off.
-REORDER_HACK := 0
-ifneq ($(REORDER_HACK),0)
+REORDER_HACK :=
+ifeq ($(REORDER_HACK),1)
 	REORDER_HACKF	:= -DREORDER_HACK
 endif
 

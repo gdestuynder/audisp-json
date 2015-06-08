@@ -538,7 +538,7 @@ int main(int argc, char *argv[])
 				len = reorder_input_hack(&sorted_tmp, full_str_tmp);
 				auparse_feed(au, sorted_tmp, len);
 				i = 0;
-				stop = stop = 0;
+				start = stop = 0;
 				sorted_tmp[0] = '\0';
 				full_str_tmp[0] = '\0';
 			}
