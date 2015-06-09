@@ -213,7 +213,7 @@ void curl_perform(void)
 			if (ret != CURLM_OK) {
 			   syslog(LOG_ERR, "Couldn't send JSON message (message is lost): %s.", curl_easy_strerror(ret));
 			}
-			if (http_code != HTTP_CODE_OK) {
+			if (http_code > HTTP_CODE_OK) {
 				syslog(LOG_ERR, "Couldn't send JSON message (message is lost):  HTTP error code %ld.", http_code);
 			}
 		}
