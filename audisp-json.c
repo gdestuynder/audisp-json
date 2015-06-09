@@ -86,6 +86,7 @@ CURLM *multi_h;
 CURL *easy_h;
 struct curl_slist *slist1;
 int curl_nr_h = -1;
+int msg_lost = 0;
 
 typedef struct { char *val; } msg_t;
 typedef struct ring_buf_msg {
@@ -146,6 +147,7 @@ void ring_write(ring_buf_msg_t *rb, char *val)
 {
 	if (ring_full(rb)) {
 		free((char *)ring_read(rb));
+		syslog(LOG_WARNING, "Overflowed ring buffer - %u messages lost", msg_lost++);
 	}
 	rb->data[rb->end&(rb->size-1)].val = val;
 	rb->end = ring_add(rb, rb->end);
