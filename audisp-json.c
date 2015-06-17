@@ -122,6 +122,10 @@ struct json_msg_type {
 
 int ring_full(ring_buf_msg_t *rb)
 {
+	//
+	// XXXALM: Do we want a OR here vs. XOR? Didn't look at much of the
+	// ring buffer code as I believe the intent is to change it.
+	// 
 	return rb->end == (rb->start ^ rb->size);
 }
 
@@ -430,11 +434,14 @@ int main(int argc, char *argv[])
 	sa.sa_flags = 0;
 	sigemptyset(&sa.sa_mask);
 	sa.sa_handler = term_handler;
-	sigaction(SIGTERM, &sa, NULL);
+	if (sigaction(SIGTERM, &sa, NULL) == -1)
+		return -1;
 	sa.sa_handler = int_handler;
-	sigaction(SIGINT, &sa, NULL);
+	if (sigaction(SIGINT, &sa, NULL) == -1)
+		return -1;
 	sa.sa_handler = hup_handler;
-	sigaction(SIGHUP, &sa, NULL);
+	if (sigaction(SIGHUP, &sa, NULL) == -1)
+		return -1;
 
 	if (load_config(&config, CONFIG_FILE))
 		if (load_config(&config, CONFIG_FILE_LOCAL))
@@ -442,6 +449,12 @@ int main(int argc, char *argv[])
 
 	openlog(PROGRAM_NAME, LOG_CONS, LOG_DAEMON);
 
+	//
+	// XXXALM: Recommend we use sizeof() here rather then specifying the
+	// previously set buffer size. There are a few places in the code
+	// this occurs, this would make it a little more resilient to
+	// changes.
+	//
 	if (gethostname(nodename, 63)) {
 		snprintf(nodename, 10, "localhost");
 	}
@@ -449,11 +462,14 @@ int main(int argc, char *argv[])
 	ht = gethostbyname(nodename);
 	if (ht == NULL) {
 		hostname = strdup("localhost");
+		if (hostname == NULL)
+			return -1;
 		syslog(LOG_ALERT,
 			"gethostbyname could not find machine hostname, please fix this. Using %s as fallback. Error: %s",
 			hostname, hstrerror(h_errno));
 	} else {
-		hostname = strdup(ht->h_name);
+		if ((hostname = strdup(ht->h_name)) == NULL)
+			return -1;
 	}
 
 	au = auparse_init(AUSOURCE_FEED, NULL);
@@ -754,6 +770,11 @@ void syslog_json_msg(struct json_msg_type json_msg)
 		PROGRAM_NAME, json_msg.timestamp, PROGRAM_NAME, STR(PROGRAM_VERSION));
 
 	while (head) {
+			//
+			// XXXALM: On initial review this looks dangerous;
+			// MAX_JSON_MSG_SIZE refers to the storage allocated to msg but
+			// we are supplying a pointer offset via len.
+			//
 			len += snprintf(msg+len, MAX_JSON_MSG_SIZE, "\n%s,", head->value);
 			prev = head;
 			head = head->next;
@@ -764,6 +785,13 @@ void syslog_json_msg(struct json_msg_type json_msg)
 			}
 	}
 
+	//
+	// XXXALM: Similar to previous comment, the destination pointer points past
+	// msg but we are constraining to the full buffer size of msg.
+	//
+	// XXXALM: Do we need to increment len here since it will not be used
+	// after this?
+	//
 	len += snprintf(msg+len, MAX_JSON_MSG_SIZE, "	}\n}");
 	msg[MAX_JSON_MSG_SIZE-1] = '\0';
 
@@ -826,20 +854,35 @@ static void handle_event(auparse_state_t *au,
 
 	json_msg.timestamp = (char *)alloca(64);
 	json_msg.summary = (char *)alloca(MAX_SUMMARY_LEN);
+	//
+	// XXXALM: I'm not sure if checking NULL here makes sense since a failure in
+	// alloca() due to a stack overflow results in undefined behavior but it
+	// probably doesn't hurt to have it.
+	//
 	if (!json_msg.summary || !json_msg.timestamp) {
 		syslog(LOG_ERR, "handle_event() alloca failed, message lost!");
 		return;
 	}
 
 	while (auparse_goto_record_num(au, num) > 0) {
+		//
+		// XXXALM: Should we validate type is not 0 here?
+		//
 		type = auparse_get_type(au);
 
 		if (!auparse_first_field(au))
 			continue;
 
 		t = auparse_get_time(au);
+		//
+		// XXXALM: Should we validate t is != 0 here?
+		//
 		tmp = localtime(&t);
 		strftime(json_msg.timestamp, 64, "%FT%T%z", tmp);
+		//
+		// XXXALM: Recommend we use sizeof() here since it's a static buffer,
+		// as noted in other comments.
+		//
 		snprintf(serial, 63, "%lu", auparse_get_serial(au));
 		json_msg.details = json_add_attr(json_msg.details, "auditserial", serial);
 
@@ -854,6 +897,10 @@ static void handle_event(auparse_state_t *au,
 
 				json_msg.details = json_add_attr(json_msg.details, "dev", dev);
 				goto_record_type(au, type);
+				//
+				// XXXALM: In all cases where auparse_find_field is used in json_addr_attr,
+				// should we validate the field exists first?
+				//
 				json_msg.details = json_add_attr(json_msg.details, "promiscious", auparse_find_field(au, "prom"));
 				promisc = auparse_get_field_int(au);
 				goto_record_type(au, type);
@@ -934,6 +981,10 @@ static void handle_event(auparse_state_t *au,
 					goto_record_type(au, type);
 					tmplen = snprintf(f, 7, "a%d", i);
 					f[tmplen] = '\0';
+					//
+					// XXXALM: Should we check for NULL after the first
+					// assignment to cmd here?
+					//
 					cmd = auparse_find_field(au, f);
 					cmd = auparse_interpret_field(au);
 					if (!cmd)
@@ -942,6 +993,11 @@ static void handle_event(auparse_state_t *au,
 						if (len == 0)
 							len += sprintf(fullcmd+len, "%s", cmd);
 						else
+							//
+							// XXXALM: With the additional space supplied here
+							// that isn't taken into account in the previous
+							// check is it possible to overflow fullcmd?
+							//
 							len += sprintf(fullcmd+len, " %s", cmd);
 					}
 				}
@@ -1010,8 +1066,14 @@ static void handle_event(auparse_state_t *au,
 				} else if (!strncmp(sys, "execve", 6)) {
 					havejson = 1;
 					category = CAT_EXECVE;
+					//
+					// XXXALM: 5?
+					//
 				} else if (!strncmp(sys, "ioctl", 6)) {
 					category = CAT_PROMISC;
+					//
+					// XXXALM: 7?
+					//
 				} else if (!strncmp(sys, "adjtimex", 6)) {
 					category = CAT_TIME;
 				} else {
