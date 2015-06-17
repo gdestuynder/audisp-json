@@ -1072,7 +1072,7 @@ static void handle_event(auparse_state_t *au,
 				} else if (!strncmp(sys, "ioctl", 6)) {
 					category = CAT_PROMISC;
 					//
-					// XXXALM: 7?
+					// XXXALM: 8?
 					//
 				} else if (!strncmp(sys, "adjtimex", 6)) {
 					category = CAT_TIME;
