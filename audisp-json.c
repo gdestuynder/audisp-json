@@ -1017,9 +1017,9 @@ static void handle_event(auparse_state_t *au,
 				} else if (!strncmp(sys, "execve", 6)) {
 					havejson = 1;
 					category = CAT_EXECVE;
-				} else if (!strncmp(sys, "ioctl", 6)) {
+				} else if (!strncmp(sys, "ioctl", 5)) {
 					category = CAT_PROMISC;
-				} else if (!strncmp(sys, "adjtimex", 6)) {
+				} else if (!strncmp(sys, "adjtimex", 8)) {
 					category = CAT_TIME;
 				} else {
 					syslog(LOG_INFO, "System call %u %s is not supported by %s", i, sys, PROGRAM_NAME);
