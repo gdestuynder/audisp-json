@@ -430,11 +430,14 @@ int main(int argc, char *argv[])
 	sa.sa_flags = 0;
 	sigemptyset(&sa.sa_mask);
 	sa.sa_handler = term_handler;
-	sigaction(SIGTERM, &sa, NULL);
+	if (sigaction(SIGTERM, &sa, NULL) == -1)
+		return 1;
 	sa.sa_handler = int_handler;
-	sigaction(SIGINT, &sa, NULL);
+	if (sigaction(SIGINT, &sa, NULL) == -1)
+		return 1;
 	sa.sa_handler = hup_handler;
-	sigaction(SIGHUP, &sa, NULL);
+	if (sigaction(SIGHUP, &sa, NULL) == -1)
+		return 1;
 
 	if (load_config(&config, CONFIG_FILE))
 		if (load_config(&config, CONFIG_FILE_LOCAL))
@@ -449,11 +452,15 @@ int main(int argc, char *argv[])
 	ht = gethostbyname(nodename);
 	if (ht == NULL) {
 		hostname = strdup("localhost");
+		if (hostname == NULL)
+			return 1;
 		syslog(LOG_ALERT,
 			"gethostbyname could not find machine hostname, please fix this. Using %s as fallback. Error: %s",
 			hostname, hstrerror(h_errno));
 	} else {
 		hostname = strdup(ht->h_name);
+		if (hostname == NULL)
+			return 1;
 	}
 
 	au = auparse_init(AUSOURCE_FEED, NULL);
