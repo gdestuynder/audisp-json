@@ -761,7 +761,7 @@ void syslog_json_msg(struct json_msg_type json_msg)
 		PROGRAM_NAME, json_msg.timestamp, PROGRAM_NAME, STR(PROGRAM_VERSION));
 
 	while (head) {
-			len += snprintf(msg+len, MAX_JSON_MSG_SIZE, "\n%s,", head->value);
+			len += snprintf(msg+len, MAX_JSON_MSG_SIZE-len, "\n%s,", head->value);
 			prev = head;
 			head = head->next;
 			free(prev);
@@ -771,7 +771,7 @@ void syslog_json_msg(struct json_msg_type json_msg)
 			}
 	}
 
-	len += snprintf(msg+len, MAX_JSON_MSG_SIZE, "	}\n}");
+	len += snprintf(msg+len, MAX_JSON_MSG_SIZE-len, "	}\n}");
 	msg[MAX_JSON_MSG_SIZE-1] = '\0';
 
 	ring_write(&msg_list, msg);
