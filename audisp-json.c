@@ -53,6 +53,7 @@
 #define MAX_JSON_MSG_SIZE 4096
 #define MAX_ARG_LEN 2048
 #define MAX_SUMMARY_LEN 256
+#define TS_LEN 64
 #define MAX_ATTR_SIZE MAX_AUDIT_MESSAGE_LENGTH
 #ifdef REORDER_HACK
 #define NR_LINES_BUFFERED 64
@@ -445,10 +446,10 @@ int main(int argc, char *argv[])
 
 	openlog(PROGRAM_NAME, LOG_CONS, LOG_DAEMON);
 
-	if (gethostname(nodename, 63)) {
+	if (gethostname(nodename, sizeof(nodename)-1)) {
 		snprintf(nodename, 10, "localhost");
 	}
-	nodename[64] = '\0';
+	nodename[sizeof(nodename)] = '\0';
 	ht = gethostbyname(nodename);
 	if (ht == NULL) {
 		hostname = strdup("localhost");
@@ -831,7 +832,7 @@ static void handle_event(auparse_state_t *au,
 		return;
 	}
 
-	json_msg.timestamp = (char *)alloca(64);
+	json_msg.timestamp = (char *)alloca(TS_LEN);
 	json_msg.summary = (char *)alloca(MAX_SUMMARY_LEN);
 	if (!json_msg.summary || !json_msg.timestamp) {
 		syslog(LOG_ERR, "handle_event() alloca failed, message lost!");
@@ -840,14 +841,16 @@ static void handle_event(auparse_state_t *au,
 
 	while (auparse_goto_record_num(au, num) > 0) {
 		type = auparse_get_type(au);
+		if (!type)
+			continue;
 
 		if (!auparse_first_field(au))
 			continue;
 
 		t = auparse_get_time(au);
 		tmp = localtime(&t);
-		strftime(json_msg.timestamp, 64, "%FT%T%z", tmp);
-		snprintf(serial, 63, "%lu", auparse_get_serial(au));
+		strftime(json_msg.timestamp, TS_LEN, "%FT%T%z", tmp);
+		snprintf(serial, TS_LEN-1, "%lu", auparse_get_serial(au));
 		json_msg.details = json_add_attr(json_msg.details, "auditserial", serial);
 
 		switch (type) {
