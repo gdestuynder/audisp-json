@@ -49,7 +49,6 @@
  * waiting for the connection to work again.
  */
 #define MAX_CURL_GLOBAL_TIMEOUT 5000L
-#define RING_BUF_LEN 512
 #define MAX_JSON_MSG_SIZE 4096
 #define MAX_ARG_LEN 2048
 #define MAX_SUMMARY_LEN 256
@@ -90,15 +89,8 @@ int curl_nr_h = -1;
 int msg_lost = 0;
 
 typedef struct { char *val; } msg_t;
-typedef struct ring_buf_msg {
-	int size;
-	int start;
-	int end;
-	msg_t *data;
-} ring_buf_msg_t;
 
-static ring_buf_msg_t msg_list;
-
+/* msg attributes list */
 typedef struct	ll {
 	char value[MAX_ATTR_SIZE];
 	struct ll *next;
@@ -115,44 +107,13 @@ struct json_msg_type {
 	struct	ll *details;
 };
 
-/* ring buffer functions:
- * we've to keep the data we send to MozDef around for cURL.
- * in case we get overloaded with messages, we don't want to DOS ourselves so we're limited to the size of the ring
- * buffer.
- */
+/* msgs to send queue/buffer */
+typedef struct lq {
+	char msg[MAX_JSON_MSG_SIZE];
+	struct lq *next;
+} queue_t;
 
-int ring_full(ring_buf_msg_t *rb)
-{
-	return rb->end == (rb->start ^ rb->size);
-}
-
-int ring_empty(ring_buf_msg_t *rb)
-{
-	return rb->end == rb->start;
-}
-
-int ring_add(ring_buf_msg_t *rb, int p)
-{
-	return (p + 1)&(2*rb->size-1);
-}
-
-char *ring_read(ring_buf_msg_t *rb)
-{
-	char *val;
-	val = rb->data[rb->start&(rb->size-1)].val;
-	rb->start = ring_add(rb, rb->start);
-	return val;
-}
-
-void ring_write(ring_buf_msg_t *rb, char *val)
-{
-	if (ring_full(rb)) {
-		free((char *)ring_read(rb));
-		syslog(LOG_WARNING, "Overflowed ring buffer - %u messages lost", msg_lost++);
-	}
-	rb->data[rb->end&(rb->size-1)].val = val;
-	rb->end = ring_add(rb, rb->end);
-}
+struct lq *msg_queue_list;
 
 void prepare_curl_handle(char *new_msg)
 {
@@ -184,16 +145,25 @@ void prepare_curl_handle(char *new_msg)
 	curl_easy_setopt(easy_h, CURLOPT_COPYPOSTFIELDS, new_msg);
 }
 
-int ring_check_queue()
+/* Insert/remove new messages in the queue
+ */
+int list_check_queue()
 {
-	if (ring_empty(&msg_list))
-		return 1;
+	queue_t *prev;
 
-	char *new_msg = ring_read(&msg_list);
+	if (!msg_queue_list) {
+		return 1;
+	}
+
+	prev = msg_queue_list;
+	msg_queue_list = msg_queue_list->next;
+
 	curl_multi_remove_handle(multi_h, easy_h);
-	prepare_curl_handle(new_msg);
-	free(new_msg);
-	curl_multi_add_handle(multi_h, easy_h);
+	if (prev) {
+		prepare_curl_handle(prev->msg);
+		free(prev);
+		curl_multi_add_handle(multi_h, easy_h);
+	}
 	return 0;
 }
 
@@ -223,13 +193,13 @@ void curl_perform(void)
 	}
 
 	/* cURL will set this to 0 when there is no transfer left to process,
-	 * signaling we can sent the next message. ring_check_queue() will insert the next message from the queue
+	 * signaling we can sent the next message. list_check_queue() will insert the next message from the queue
 	 * into the multi_h.
 	 * If there's no message in the queue, we bail for now.
 	 */
 	if (curl_nr_h == 0) {
 		curl_nr_h = -1;
-		if (ring_check_queue()) {
+		if (list_check_queue()) {
 			return;
 		}
 	}
@@ -476,16 +446,6 @@ int main(int argc, char *argv[])
 	}
 
 	/* libcurl stuff */
-	msg_list.size = RING_BUF_LEN;
-	msg_list.start = 0;
-	msg_list.end = 0;
-	msg_list.data = (msg_t *)calloc(RING_BUF_LEN, sizeof(msg_t));
-
-	if (!msg_list.data) {
-		syslog(LOG_ERR, "calloc() failed");
-		return -1;
-	}
-
 	if (curl_global_init(CURL_GLOBAL_ALL) != 0) {
 		syslog(LOG_ERR, "curl_global_init() failed");
 		return -1;
@@ -563,7 +523,7 @@ int main(int argc, char *argv[])
 
 	auparse_flush_feed(au);
 
-	while (!ring_empty(&msg_list))
+	while (msg_queue_list)
 		curl_perform();
 
 	auparse_destroy(au);
@@ -572,7 +532,6 @@ int main(int argc, char *argv[])
 	curl_global_cleanup();
 	if (curl_logfile)
 		fclose(curl_logfile);
-	free(msg_list.data);
 	free_config(&config);
 	free(hostname);
 #ifdef REORDER_HACK
@@ -734,16 +693,16 @@ void syslog_json_msg(struct json_msg_type json_msg)
 {
 	attr_t *head = json_msg.details;
 	attr_t *prev;
-	char *msg;
+	queue_t *new_q;
 	int len;
 
-	msg = malloc((size_t)MAX_JSON_MSG_SIZE);
-	if (!msg) {
-		syslog(LOG_ERR, "syslog_json_msg() malloc failed, message lost!");
+	new_q = malloc(sizeof(queue_t));
+	if (!new_q) {
+		syslog(LOG_ERR, "syslog_json_msg() new_q malloc() failed, message lost!");
 		return;
 	}
 
-	len = snprintf(msg, MAX_JSON_MSG_SIZE,
+	len = snprintf(new_q->msg, MAX_JSON_MSG_SIZE,
 "{\n\
 	\"category\": \"%s\",\n\
 	\"summary\": \"%s\",\n\
@@ -762,22 +721,24 @@ void syslog_json_msg(struct json_msg_type json_msg)
 		PROGRAM_NAME, json_msg.timestamp, PROGRAM_NAME, STR(PROGRAM_VERSION));
 
 	while (head) {
-			len += snprintf(msg+len, MAX_JSON_MSG_SIZE-len, "\n%s,", head->value);
+			len += snprintf(new_q->msg+len, MAX_JSON_MSG_SIZE-len, "\n%s,", head->value);
 			prev = head;
 			head = head->next;
 			free(prev);
 
 			if (head == NULL) {
-				msg[len-1] = '\n';
+				new_q->msg[len-1] = '\n';
 			}
 	}
 
-	len += snprintf(msg+len, MAX_JSON_MSG_SIZE-len, "	}\n}");
-	msg[MAX_JSON_MSG_SIZE-1] = '\0';
+	len += snprintf(new_q->msg+len, MAX_JSON_MSG_SIZE-len, "	}\n}");
+	new_q->msg[MAX_JSON_MSG_SIZE-1] = '\0';
 
-	ring_write(&msg_list, msg);
+	new_q->next = msg_queue_list;
+	msg_queue_list = new_q;
+
 #ifdef DEBUG
-	printf("%s\n", msg);
+	printf("%s\n", new_q->msg);
 #endif
 }
 
@@ -786,6 +747,7 @@ static void handle_event(auparse_state_t *au,
 		auparse_cb_event_t cb_event_type, void *user_data)
 {
 	int type, num=0;
+
 
 	struct json_msg_type json_msg = {
 		.category		= NULL,
