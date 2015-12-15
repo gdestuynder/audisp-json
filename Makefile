@@ -103,3 +103,5 @@ clean:
 	rm -fr tmp
 	rm -rf *.rpm
 	rm -rf *.deb
+
+.PHONY: clean
