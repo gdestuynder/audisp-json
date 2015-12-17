@@ -49,6 +49,7 @@
  * waiting for the connection to work again.
  */
 #define MAX_CURL_GLOBAL_TIMEOUT 5000L
+#define MAX_CURL_QUEUE_SIZE 8192
 #define MAX_JSON_MSG_SIZE 4096
 #define MAX_ARG_LEN 2048
 #define MAX_SUMMARY_LEN 256
@@ -114,6 +115,7 @@ typedef struct lq {
 } queue_t;
 
 struct lq *msg_queue_list;
+unsigned int msg_queue_list_size = 0;
 
 void prepare_curl_handle(char *new_msg)
 {
@@ -162,6 +164,7 @@ int list_check_queue()
 	if (prev) {
 		prepare_curl_handle(prev->msg);
 		free(prev);
+		msg_queue_list_size--;
 		curl_multi_add_handle(multi_h, easy_h);
 	}
 	return 0;
@@ -515,6 +518,7 @@ int main(int argc, char *argv[])
 #else
 			auparse_feed(au, tmp, len);
 #endif
+			curl_perform();
 		}
 
 		if (feof(stdin))
@@ -696,6 +700,11 @@ void syslog_json_msg(struct json_msg_type json_msg)
 	queue_t *new_q;
 	int len;
 
+	if (msg_queue_list_size > MAX_CURL_QUEUE_SIZE) {
+		syslog(LOG_WARNING, "syslog_json_msg() MAX_CURL_QUEUE_SIZE of %u reached, message lost!", MAX_CURL_QUEUE_SIZE);
+		return;
+	}
+
 	new_q = malloc(sizeof(queue_t));
 	if (!new_q) {
 		syslog(LOG_ERR, "syslog_json_msg() new_q malloc() failed, message lost!");
@@ -736,6 +745,7 @@ void syslog_json_msg(struct json_msg_type json_msg)
 
 	new_q->next = msg_queue_list;
 	msg_queue_list = new_q;
+	msg_queue_list_size++;
 
 #ifdef DEBUG
 	printf("%s\n", new_q->msg);
