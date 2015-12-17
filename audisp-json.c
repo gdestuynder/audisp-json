@@ -955,7 +955,7 @@ static void handle_event(auparse_state_t *au,
 				i = auparse_get_field_int(au);
 				sys = audit_syscall_to_name(i, machine);
 				if (!sys) {
-					syslog(LOG_INFO, "System call %u is not supported by %s", i, PROGRAM_NAME);
+					syslog(LOG_DEBUG, "System call %u is not supported by %s", i, PROGRAM_NAME);
 					json_del_attrs(json_msg.details);
 					return;
 				}
