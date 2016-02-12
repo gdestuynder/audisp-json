@@ -1027,6 +1027,8 @@ static void handle_event(auparse_state_t *au,
 				goto_record_type(au, type);
 				json_msg.details = json_add_attr(json_msg.details, "process", auparse_find_field(au, "exe"));
 				goto_record_type(au, type);
+				json_msg.details = json_add_attr(json_msg.details, "ppid", auparse_find_field(au, "ppid"));
+				goto_record_type(au, type);
 				json_msg.details = json_add_attr(json_msg.details, "pid", auparse_find_field(au, "pid"));
 				goto_record_type(au, type);
 				json_msg.details = json_add_attr(json_msg.details, "gid", auparse_find_field(au, "gid"));
