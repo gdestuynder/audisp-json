@@ -533,6 +533,7 @@ int main(int argc, char *argv[])
 	auparse_destroy(au);
 	curl_easy_cleanup(easy_h);
 	curl_multi_cleanup(multi_h);
+	curl_slist_free_all(slist1);
 	curl_global_cleanup();
 	if (curl_logfile)
 		fclose(curl_logfile);
