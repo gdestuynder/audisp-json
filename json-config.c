@@ -334,5 +334,6 @@ static int curl_fparser(struct nv_pair *nv, int line,
 void free_config(json_conf_t *config)
 {
 	free((void *)config->mozdef_url);
+	free((void *)config->curl_cainfo);
 }
 
