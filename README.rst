@@ -47,6 +47,30 @@ We previously used audisp-cef, so we would want to mark that package as obsolete
 - make rpm FPMOPTS="--replaces audisp-cef"
 - make deb FPMOPTS="--replaces audisp-cef"
 
+Static compilation tips
+=======================
+If you need to compile in statically compiled libraries, here are the variables to change from the makefile,
+using libcurl and openssl statically compiled as an example.
+
+ ::
+
+    @@ -48,9 +48,11 @@ else ifeq ($(DEBUG),1)
+    else
+    CFLAGS  := -fPIE -DPIE -g -O2 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all -D_FORTIFY_SOURCE=2
+    endif
+    +CFLAGS := -g -O2 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all -D_FORTIFY_SOURCE=2
+
+    -LDFLAGS        := -pie -Wl,-z,relro
+    -LIBS   := -lauparse -laudit `curl-config --libs`
+    +#LDFLAGS       := -pie -Wl,-z,relro -static
+    +LDFLAGS := -static -ldl -lz -lrt
+    +LIBS   := -lauparse -laudit $(pkg-config --static --libs libssl libcurl)
+    ./path-to-libcurl/lib/.libs/libcurl.a ./path-to-openssl/libssl.a
+    ./path-to-openssl/libcrypto.a
+    DEFINES        := -DPROGRAM_VERSION\=${VERSION} ${REORDER_HACKF} ${IGNORE_EMPTY_EXECVE_COMMANDF}
+
+    GCC            := gcc
+
 Deal with auditd quirks, or how to make auditd useable in prod
 --------------------------------------------------------------
 
