@@ -837,10 +837,10 @@ static void handle_event(auparse_state_t *au,
 
 				json_msg.details = json_add_attr(json_msg.details, "dev", dev);
 				goto_record_type(au, type);
-				json_msg.details = json_add_attr(json_msg.details, "promiscious", auparse_find_field(au, "prom"));
+				json_msg.details = json_add_attr(json_msg.details, "promiscuous", auparse_find_field(au, "prom"));
 				promisc = auparse_get_field_int(au);
 				goto_record_type(au, type);
-				json_msg.details = json_add_attr(json_msg.details, "old_promicious", auparse_find_field(au, "old_prom"));
+				json_msg.details = json_add_attr(json_msg.details, "old_promiscuous", auparse_find_field(au, "old_prom"));
 				goto_record_type(au, type);
 				if (auparse_find_field(au, "auid")) {
 					json_msg.details = json_add_attr_free(json_msg.details, "originaluser",
@@ -1136,7 +1136,7 @@ static void handle_event(auparse_state_t *au,
 		json_msg.category = "promiscuous";
 		snprintf(json_msg.summary,
 					MAX_SUMMARY_LEN,
-					"Promisc: Interface %s set promiscous %s",
+					"Promisc: Interface %s set promiscuous %s",
 					unescape(dev), promisc ? "on": "off");
 	}
 
