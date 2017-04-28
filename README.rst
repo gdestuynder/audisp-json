@@ -125,3 +125,6 @@ The audisp-json.conf file has 4 options:
 :curl_logfile: Path to a file to log curl debug messages to. Most useful with curl_verbose also set. Otherwise, message
                go to stderr.
 :curl_cainfo: Specify the path to a single CA certificate, if needed. When not specified, system's CA bundle is used.
+
+The audit configuration itself is up to you, but you get you started we have included the a base configurable file that
+provides self-auditing and execve (think "bash history on steroids") auditing, see 'example_audit.rules'.
