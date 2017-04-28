@@ -66,6 +66,7 @@
 -w /etc/syslog-ng/ -p wa -k syslog
 -w /data/hekad/hekad.toml -p wa -k heka
 -w /etc/hekad/hekad.toml -p wa -k heka
+-w /etc/fluent/ -p wa -k fluentd
 
 # Record changes to cron config
 -w /etc/cron.allow -p wa -k cron
