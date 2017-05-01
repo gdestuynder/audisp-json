@@ -17,6 +17,29 @@ Regular audit log messages and audisp-json error, info messages still use syslog
 Due to the ring buffer filling up when the front-end HTTP server does not process fast enough, the program may slowly
 grow in memory for a while on busy systems. It'll stop at 512 messages (hard-coded) buffered.
 
+Diagram
+-------
+
+  ::
+
+  +-----------+            +------------+
+  |           |   Netlink  |            |
+  |  kernel   +------------>   auditd   |
+  |           |            |            |
+  +-----------+            +------+-----+
+                                  |                +------------+             +--------------+
+                           pipe   |                |            |   HTTP(S)   |              |
+                                  |         +------> audisp-json+------------>+  MozDef JSON |
+                           +------v-----+   |      |            |             |              |
+                           |            |   |      +------------+             +--------------+
+                           | audispd    +---+
+                           |            |  pipe
+                           +---------+--+          +------------+
+                                     |             |            |
+                                     +-------------> Other      |
+                                           pipe    | plugins    |
+                                                   +------------+
+
 Building
 --------
 
@@ -128,3 +151,5 @@ The audisp-json.conf file has 4 options:
 
 The audit configuration itself is up to you, but you get you started we have included the a base configurable file that
 provides self-auditing and execve (think "bash history on steroids") auditing, see 'example_audit.rules'.
+
+The au-json.conf file configures audispd, which will start the audisp-json plugin.
