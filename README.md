@@ -79,11 +79,21 @@ using libcurl and openssl statically compiled as an example.
     +LDFLAGS := -static -ldl -lz -lrt
     +LIBS   := -lauparse -laudit $(pkg-config --static --libs libssl libcurl)
     ./path-to-libcurl/lib/.libs/libcurl.a ./path-to-openssl/libssl.a
-    ./path-to-openssl/libcrypto.a
+    ./path-to-openssl/libcrypto.a -lpthread
     DEFINES        := -DPROGRAM_VERSION\=${VERSION} ${REORDER_HACKF} ${IGNORE_EMPTY_EXECVE_COMMANDF}
 
     GCC            := gcc
 ```
+
+To compile libcurl in this example:
+
+```
+./configure --disable-shared --enable-static --prefix=/tmp/curl --disable-ldap --disable-sspi --without-librtmp --disable-ftp --disable-file --disable-dict --disable-telnet --disable-tftp --disable-rtsp --disable-pop3 --disable-imap --disable-smtp --disable-gopher --disable-smb --without-libidn --with-ssl --without-libssh2 --without-nghttp2 --without-libpsl
+```
+
+NOTE: Any library you enable will need to be available as a static library as well.
+NOTE2: New libraries may be needed when using newer versions of `libcurl` and `openssl` so your mileage may vary.
+
 
 ## Deal with auditd quirks, or how to make auditd useable in prod
 
