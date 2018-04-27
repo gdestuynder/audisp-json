@@ -118,6 +118,7 @@ Implemented message categories
 ------------------------------
 
 :WRITE: writes to a file, 'w' in audit.rules.
+:READ: read from a file or fd, 'r' in audit.rules.
 :ATTR: change file attributes/metadata, 'a' in audit.rules.
 :CHMOD: change file mode, 'chmod' syscall in audit.rules.
 :CHOWN: change file owner, 'chown' syscall in audit.rules.
