@@ -774,6 +774,7 @@ static void handle_event(auparse_state_t *au,
 	typedef enum {
 		CAT_EXECVE,
 		CAT_WRITE,
+		CAT_READ,
 		CAT_PTRACE,
 		CAT_ATTR,
 		CAT_APPARMOR,
@@ -974,10 +975,14 @@ static void handle_event(auparse_state_t *au,
 				json_msg.details = json_add_attr(json_msg.details, "processname", auparse_find_field(au, "comm"));
 				goto_record_type(au, type);
 
-				if (!strncmp(sys, "write", 5) || !strncmp(sys, "open", 4) || !strncmp(sys, "unlink", 6) || !strncmp(sys,
-							"rename", 6)) {
+				if (!strncmp(sys, "write", 5) || !strncmp(sys, "unlink", 6) || !strncmp(sys, "rename", 6)) {
 					havejson = 1;
 					category = CAT_WRITE;
+				} else if (!strncmp(sys, "read", 4) || !strncmp(sys, "open", 4) || !strncmp(sys, "link", 4) || !strncmp(sys,
+							"mmap", 4) || !strncmp(sys, "mmap2", 5) || !strncmp(sys, "sendfile", 8) || 
+						    !strncmp(sys, "sendfile64", 10)) {
+					havejson = 1;
+					category = CAT_READ;
 				} else if (!strncmp(sys, "setxattr", 8)) {
 					havejson = 1;
 					category = CAT_ATTR;
@@ -1103,6 +1108,12 @@ static void handle_event(auparse_state_t *au,
 		snprintf(json_msg.summary,
 					MAX_SUMMARY_LEN,
 					"Write: %s",
+					unescape(path));
+	} else if (category == CAT_READ) {
+		json_msg.category = "read";
+		snprintf(json_msg.summary,
+					MAX_SUMMARY_LEN,
+					"Read: %s",
 					unescape(path));
 	} else if (category == CAT_ATTR) {
 		json_msg.category = "attribute";
