@@ -986,7 +986,7 @@ static void handle_event(auparse_state_t *au,
 				} else if (!strncmp(sys, "setxattr", 8)) {
 					havejson = 1;
 					category = CAT_ATTR;
-				} else if (!strncmp(sys, "chmod", 5)) {
+				} else if (!strncmp(sys, "chmod", 5) || !strncmp(sys, "fchmodat", 6)) {
 					havejson = 1;
 					category = CAT_CHMOD;
 				} else if (!strncmp(sys, "chown", 5) || !strncmp(sys, "fchown", 6)) {
@@ -1000,6 +1000,7 @@ static void handle_event(auparse_state_t *au,
 					category = CAT_EXECVE;
 				} else if (!strncmp(sys, "ioctl", 5)) {
 					category = CAT_PROMISC;
+					havejson = 1;
 				} else if (!strncmp(sys, "adjtimex", 8)) {
 					havejson = 1;
 					category = CAT_TIME;
