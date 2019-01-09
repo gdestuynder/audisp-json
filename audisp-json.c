@@ -1,6 +1,6 @@
 /* vim: ts=4:sw=4:noexpandtab
  * audisp-json.c --
- * Copyright (c) 2014 Mozilla Corporation.
+ * Copyright (c) 2014-2019 Mozilla Corporation.
  * Portions Copyright 2008 Red Hat Inc., Durham, North Carolina.
  * All Rights Reserved.
  *
@@ -58,6 +58,7 @@
 #ifdef REORDER_HACK
 #define NR_LINES_BUFFERED 64
 #endif
+#define MAX_PPID_RECURSION 16
 
 #define HTTP_CODE_OK 200
 
@@ -677,6 +678,7 @@ char *get_proc_name(int pid)
 	int ret;
 	static char proc[64];
 	FILE *fp;
+
 	snprintf(p, 512, "/proc/%d/status", pid);
 	fp = fopen(p, "r");
 	if (fp) {
@@ -689,6 +691,48 @@ char *get_proc_name(int pid)
 		return NULL;
 
 	return proc;
+}
+
+/* Resolve ppid from pid */
+int get_proc_ppid(int pid)
+{
+	char p[1024];
+	int ret;
+	int ppid;
+	char proc[64];
+	FILE *fp;
+
+	snprintf(p, 512, "/proc/%d/status", pid);
+	fp = fopen(p, "r");
+	if (fp) {
+		ret = fscanf(fp, "Ppid: %63s", proc);
+		fclose(fp);
+	} else
+		return 0;
+
+	if (ret == 0)
+		return 0;
+
+	ppid = atoi(proc);
+	return ppid;
+}
+
+/* Resolve process tree from ppid */
+char *get_proc_tree(int ppid)
+{
+  static char p[4096];
+  int i = 0;
+  int cur_ppid = ppid;
+  p[0] = '\0';
+
+  for (i = 0; i < MAX_PPID_RECURSION; i++) {
+	snprintf(p, 64+1, "%s,%s", p, get_proc_name(cur_ppid)); 
+	cur_ppid = get_proc_ppid(cur_ppid);
+	if (cur_ppid == 0) // we're done, this is ppid of pid 1
+		break;
+  }
+
+  return p;
 }
 
 /* This creates the JSON message we'll send over by deserializing the C struct into a char array
@@ -798,6 +842,7 @@ static void handle_event(auparse_state_t *au,
 	char f[8];
 	int len, tmplen;
 	int argcount, i;
+	int ppid;
 	int promisc;
 	int havejson = 0;
 
@@ -1010,8 +1055,11 @@ static void handle_event(auparse_state_t *au,
 				goto_record_type(au, type);
 
 				if (auparse_find_field(au, "ppid"))
+					ppid = auparse_get_field_int(au);
 					json_msg.details = json_add_attr(json_msg.details, "parentprocess",
-														get_proc_name(auparse_get_field_int(au)));
+														get_proc_name(ppid));
+					json_msg.details = json_add_attr(json_msg.details, "ptree",
+														get_proc_tree(ppid));
 
 				goto_record_type(au, type);
 
