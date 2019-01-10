@@ -35,6 +35,7 @@
 #include <pwd.h>
 #include <netdb.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
 #include <time.h>
 #include <curl/curl.h>
 #include "libaudit.h"
@@ -187,7 +188,7 @@ void curl_perform(void)
 	while ((msg = curl_multi_info_read(multi_h, &msgs_left))) {
 		if (msg->msg == CURLMSG_DONE) {
 			ret = curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &http_code);
-			if (ret != CURLM_OK) {
+			if (ret != (CURLcode)CURLM_OK) {
 			   syslog(LOG_ERR, "Couldn't send JSON message (message is lost): %s.", curl_easy_strerror(ret));
 			}
 			if (http_code > HTTP_CODE_OK) {
@@ -214,7 +215,7 @@ void curl_perform(void)
 
 	/* With cURL you get the timeout you have to wait back from the library, so we use that for the select() call */
 	ret = curl_multi_timeout(multi_h, &curl_timeout);
-	if (ret != CURLM_OK) {
+	if (ret != (CURLcode)CURLM_OK) {
 		syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
 	}
 	timeout.tv_sec = 0;
@@ -227,7 +228,7 @@ void curl_perform(void)
 			timeout.tv_usec = (curl_timeout % 1000) * 1000;
 	}
 	ret = curl_multi_fdset(multi_h, &r, &w, &e, &maxfd);
-	if (ret != CURLM_OK) {
+	if (ret != (CURLcode)CURLM_OK) {
 		syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
 		return;
 	}
@@ -241,10 +242,10 @@ void curl_perform(void)
 		case 0:
 		default:
 			/* This also sets curl_nr_h to exactly 0 if all the handles have been processed. */
-			while ((ret = curl_multi_perform(multi_h, &curl_nr_h)) && (ret == CURLM_CALL_MULTI_PERFORM)) {
+			while ((ret = curl_multi_perform(multi_h, &curl_nr_h)) && (ret == (CURLcode)CURLM_CALL_MULTI_PERFORM)) {
 				continue;
 			}
-			if (ret != CURLM_OK) {
+			if (ret != (CURLcode)CURLM_OK) {
 				syslog(LOG_ERR, "%s", curl_multi_strerror(ret));
 			}
 			break;
@@ -583,8 +584,7 @@ char *unescape(const char *in)
 	char c;
 
 	while ((c = *src++) != '\0') {
-		if ((c == '"') || (c == '\n') || (c == '\r') || (c == '\t')
-				|| (c == '\b') || (c == '\f') || (c == '\\'))
+		if ((c == '"') || (c == '\n') || (c == '\r') || (c == '\t') || (c == '\b') || (c == '\f') || (c == '\\'))
 			continue;
 		*dst++ = c;
 	}
@@ -597,7 +597,7 @@ char *unescape(const char *in)
  * @const char *st: the attribute name to add
  * @const char *val: the attribut value - if NULL, we won't add the field to the json message at all.
  */
-attr_t *_json_add_attr(attr_t *list, const char *st, char *val, int freeme)
+attr_t *_json_add_attr(attr_t *list, const char *st, char *val, int freeme, int is_list)
 {
 	attr_t *new;
 
@@ -610,7 +610,11 @@ attr_t *_json_add_attr(attr_t *list, const char *st, char *val, int freeme)
 		syslog(LOG_ERR, "json_add_attr() malloc failed attribute will be empty: %s", st);
 		return list;
 	}
-	snprintf(new->value, MAX_ATTR_SIZE, "\t\t\"%s\": \"%s\"", st, unescape(val));
+	if (is_list) {
+	  snprintf(new->value, MAX_ATTR_SIZE, "\t\t\"%s\": [ %s ]", st, val);
+	} else {
+	  snprintf(new->value, MAX_ATTR_SIZE, "\t\t\"%s\": \"%s\"", st, unescape(val));
+	}
 	new->next = list;
 
 	if (freeme) {
@@ -623,12 +627,17 @@ attr_t *_json_add_attr(attr_t *list, const char *st, char *val, int freeme)
 /* Convenience wrappers for _json_add_attr */
 attr_t *json_add_attr_free(attr_t *list, const char *st, char *val)
 {
-	return _json_add_attr(list, st, val, 1);
+	return _json_add_attr(list, st, val, 1, 0);
 }
 
 attr_t *json_add_attr(attr_t *list, const char *st, const char *val)
 {
-	return _json_add_attr(list, st, (char *)val, 0);
+	return _json_add_attr(list, st, (char *)val, 0, 0);
+}
+
+attr_t *json_add_attr_list(attr_t *list, const char *st, const char *val)
+{
+	return _json_add_attr(list, st, (char *)val, 0, 1);
 }
 
 void json_del_attrs(attr_t *head)
@@ -720,19 +729,20 @@ int get_proc_ppid(int pid)
 /* Resolve process tree from ppid */
 char *get_proc_tree(int ppid)
 {
-  static char p[4096];
-  int i = 0;
-  int cur_ppid = ppid;
-  p[0] = '\0';
+	static char p[4096];
+	int i = 0;
+	int cur_ppid = ppid;
+	int len = 0;
 
-  for (i = 0; i < MAX_PPID_RECURSION; i++) {
-	snprintf(p, 64+1, "%s,%s", p, get_proc_name(cur_ppid)); 
-	cur_ppid = get_proc_ppid(cur_ppid);
-	if (cur_ppid == 0) // we're done, this is ppid of pid 1
-		break;
-  }
+	len = snprintf(p, 64+2, "\"%s\"", unescape(get_proc_name(cur_ppid)));
+	for (i = 0; i < MAX_PPID_RECURSION; i++) {
+		len += snprintf(p+len, 64+4, ", \"%s\"", unescape(get_proc_name(cur_ppid)));
+		cur_ppid = get_proc_ppid(cur_ppid);
+		if (cur_ppid == 0) // we're done, this is ppid of pid 1
+			break;
+	}
 
-  return p;
+	return p;
 }
 
 /* This creates the JSON message we'll send over by deserializing the C struct into a char array
@@ -825,7 +835,9 @@ static void handle_event(auparse_state_t *au,
 		CAT_CHMOD,
 		CAT_CHOWN,
 		CAT_PROMISC,
-		CAT_TIME
+		CAT_TIME,
+		CAT_SOCKET,
+		CAT_LISTEN
 	} category_t;
 	category_t category;
 
@@ -886,8 +898,8 @@ static void handle_event(auparse_state_t *au,
 				json_msg.details = json_add_attr(json_msg.details, "promiscuous", auparse_find_field(au, "prom"));
 				promisc = auparse_get_field_int(au);
 				goto_record_type(au, type);
-				json_msg.details = json_add_attr(json_msg.details, "old_promiscuous", auparse_find_field(au, "old_prom"));
-				goto_record_type(au, type);
+				json_msg.details = json_add_attr(json_msg.details, "old_promiscuous", auparse_find_field(au,
+							"old_prom")); goto_record_type(au, type);
 				if (auparse_find_field(au, "auid")) {
 					json_msg.details = json_add_attr_free(json_msg.details, "originaluser",
 														get_username(auparse_get_field_int(au)));
@@ -897,8 +909,9 @@ static void handle_event(auparse_state_t *au,
 				goto_record_type(au, type);
 
 				if (auparse_find_field(au, "uid")) {
-					json_msg.details = json_add_attr_free(json_msg.details, "user", get_username(auparse_get_field_int(au)));
-					json_msg.details = json_add_attr(json_msg.details, "uid", auparse_get_field_str(au));
+					json_msg.details = json_add_attr_free(json_msg.details, "user",
+							get_username(auparse_get_field_int(au))); json_msg.details = json_add_attr(json_msg.details,
+							"uid", auparse_get_field_str(au));
 				}
 				goto_record_type(au, type);
 				json_msg.details = json_add_attr(json_msg.details, "gid", auparse_find_field(au, "gid"));
@@ -1023,9 +1036,9 @@ static void handle_event(auparse_state_t *au,
 				if (!strncmp(sys, "write", 5) || !strncmp(sys, "unlink", 6) || !strncmp(sys, "rename", 6)) {
 					havejson = 1;
 					category = CAT_WRITE;
-				} else if (!strncmp(sys, "read", 4) || !strncmp(sys, "open", 4) || !strncmp(sys, "link", 4) || !strncmp(sys,
-							"mmap", 4) || !strncmp(sys, "mmap2", 5) || !strncmp(sys, "sendfile", 8) || 
-						    !strncmp(sys, "sendfile64", 10)) {
+				} else if (!strncmp(sys, "read", 4) || !strncmp(sys, "open", 4) || !strncmp(sys, "link", 4) ||
+						!strncmp(sys, "mmap", 4) || !strncmp(sys, "mmap2", 5) || !strncmp(sys, "sendfile", 8) ||
+						!strncmp(sys, "sendfile64", 10)) {
 					havejson = 1;
 					category = CAT_READ;
 				} else if (!strncmp(sys, "setxattr", 8)) {
@@ -1046,7 +1059,16 @@ static void handle_event(auparse_state_t *au,
 				} else if (!strncmp(sys, "ioctl", 5)) {
 					category = CAT_PROMISC;
 				} else if (!strncmp(sys, "adjtimex", 8)) {
+					havejson = 1;
 					category = CAT_TIME;
+				} else if (!strncmp(sys, "socket", 6)) {
+					havejson = 1;
+					category = CAT_SOCKET;
+					json_msg.details = json_add_attr(json_msg.details, "addr_family", auparse_find_field(au, "a0"));
+					json_msg.details = json_add_attr(json_msg.details, "sock_type", auparse_find_field(au, "a1"));
+				} else if (!strncmp(sys, "listen", 6)) {
+					havejson = 1;
+					category = CAT_LISTEN;
 				} else {
 					syslog(LOG_INFO, "System call %u %s is not supported by %s", i, sys, PROGRAM_NAME);
 				}
@@ -1054,12 +1076,11 @@ static void handle_event(auparse_state_t *au,
 				json_msg.details = json_add_attr(json_msg.details, "auditkey", auparse_find_field(au, "key"));
 				goto_record_type(au, type);
 
-				if (auparse_find_field(au, "ppid"))
+				if (auparse_find_field(au, "ppid")) {
 					ppid = auparse_get_field_int(au);
-					json_msg.details = json_add_attr(json_msg.details, "parentprocess",
-														get_proc_name(ppid));
-					json_msg.details = json_add_attr(json_msg.details, "ptree",
-														get_proc_tree(ppid));
+					json_msg.details = json_add_attr(json_msg.details, "parentprocess", get_proc_name(ppid));
+					json_msg.details = json_add_attr_list(json_msg.details, "ptree", get_proc_tree(ppid));
+				}
 
 				goto_record_type(au, type);
 
@@ -1072,8 +1093,9 @@ static void handle_event(auparse_state_t *au,
 				goto_record_type(au, type);
 
 				if (auparse_find_field(au, "uid")) {
-					json_msg.details = json_add_attr_free(json_msg.details, "user", get_username(auparse_get_field_int(au)));
-					json_msg.details = json_add_attr(json_msg.details, "uid", auparse_get_field_str(au));
+					json_msg.details = json_add_attr_free(json_msg.details, "user",
+							get_username(auparse_get_field_int(au))); json_msg.details = json_add_attr(json_msg.details,
+							"uid", auparse_get_field_str(au));
 				}
 				goto_record_type(au, type);
 
@@ -1147,56 +1169,37 @@ static void handle_event(auparse_state_t *au,
 		}
 #endif
 		json_msg.category = "execve";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"Execve: %s",
-					unescape(fullcmd));
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Execve: %s", unescape(fullcmd));
 	} else if (category == CAT_WRITE) {
 		json_msg.category = "write";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"Write: %s",
-					unescape(path));
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Write: %s", unescape(path));
 	} else if (category == CAT_READ) {
-		json_msg.category = "read";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"Read: %s",
-					unescape(path));
+		json_msg.category = "read"; snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Read: %s", unescape(path));
 	} else if (category == CAT_ATTR) {
 		json_msg.category = "attribute";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"Attribute: %s",
-					unescape(path));
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Attribute: %s", unescape(path));
 	} else if (category == CAT_CHMOD) {
 		json_msg.category = "chmod";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"Chmod: %s",
-					unescape(path));
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Chmod: %s", unescape(path));
 	} else if (category == CAT_CHOWN) {
 		json_msg.category = "chown";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"Chown: %s",
-					unescape(path));
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Chown: %s", unescape(path));
 	} else if (category == CAT_PTRACE) {
 		json_msg.category = "ptrace";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"Ptrace");
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Ptrace");
 	} else if (category == CAT_TIME) {
 		json_msg.category = "time";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"time has been modified");
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "time has been modified");
+	} else if (category == CAT_SOCKET) {
+		json_msg.category = "socket";
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Socket");
+	} else if (category == CAT_LISTEN) {
+		json_msg.category = "listen";
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Listen");
 	} else if (category == CAT_PROMISC) {
 		json_msg.category = "promiscuous";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"Promisc: Interface %s set promiscuous %s",
-					unescape(dev), promisc ? "on": "off");
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Promisc: Interface %s set promiscuous %s", unescape(dev), promisc ?
+				"on": "off");
 	}
 
 	/* syslog_json_msg() also frees json_msg.details when called. */
