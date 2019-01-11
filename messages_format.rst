@@ -113,6 +113,7 @@ Fields reference
 :details.cwd: Current working directory of the program.
 :details.parentprocess: Name of the parent process which has spawned details.process.
 :details.ppid: PID of the parent process.
+:details.ptree: Human readable tree of parent processes. This is serialized and order matters!
 
 Implemented message categories
 ------------------------------
@@ -126,3 +127,5 @@ Implemented message categories
 :EXECVE: execute program, 'execve' syscall in audit.rules.
 :AVC_APPARMOR: AppArmor messages, generally used on Ubuntu. Not handled by audit.rules.
 :ANOM_PROMISCUOUS: network interface promiscuous setting on/off. Handled by 'ioctl' syscall in audit.rules.
+:SOCKET: new socket() has been seen. Usually to detect raw sockets (filter on arg1=3/SOCK_RAW)
+:LISTEN: socket is now listening for connections. arg0 is address familly, such as AF_INET.
