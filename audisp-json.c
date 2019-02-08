@@ -1009,7 +1009,7 @@ static void handle_event(auparse_state_t *au,
 				} else if (!strncmp(sys, "setxattr", 8)) {
 					havejson = 1;
 					category = CAT_ATTR;
-				} else if (!strncmp(sys, "chmod", 5)) {
+				} else if (!strncmp(sys, "chmod", 5) || !strncmp(sys, "fchmodat", 8)) {
 					havejson = 1;
 					category = CAT_CHMOD;
 				} else if (!strncmp(sys, "chown", 5) || !strncmp(sys, "fchown", 6)) {

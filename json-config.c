@@ -78,6 +78,7 @@ static const struct kw_pair keywords[] =
 	{"curl_verbose", curl_parser,	0},
 	{"curl_logfile", curl_fparser,	0},
 	{"file_log", file_fparser,	0},
+	{NULL}
 };
 
 /*
