@@ -18,7 +18,7 @@
 # Authors:
 #   Guillaume Destuynder <gdestuynder@mozilla.com>
 
-VERSION	:= 2.1.0
+VERSION	:= 2.2.1
 
 #FPM options, suggestions:
 # --replaces audisp-cef
@@ -85,6 +85,15 @@ packaging: audisp-json au-json.conf audisp-json.conf
 	${INSTALL} -D -m 0644 au-json.conf tmp/etc/audisp/plugins.d/au-json.conf
 	${INSTALL} -D -m 0644 audisp-json.conf tmp/etc/audisp/audisp-json.conf
 	${INSTALL} -D -m 0755 audisp-json tmp/sbin/audisp-json
+
+rpm-aws: packaging
+	@echo You want to run this on an amazon build system, e.g.:
+	@echo `docker run --rm -ti -v $(pwd):/build amazonlinux /bin/bash` then cd /build and run this make target
+	@echo Installing dependencies...
+	yum -y install libcurl-devel audit-libs-devel libtool
+	yum -y install ruby-devel gcc make rpm-build rubygems
+	gem install --no-ri --no-rdoc fpm
+	$(MAKE) rpm
 
 rpm: packaging
 	fpm ${FPMOPTS} -C tmp -v ${VERSION} -n audisp-json --license GPL --vendor mozilla --description "json plugin for Linux Audit" \

@@ -33,6 +33,7 @@ They're self explanatory.
 - make install
 - make uninstall
 - make clean
+- make rpm-aws # builds deps for amazonlinux, then builds rpm
 
 ### Mozilla build targets
 We previously used audisp-cef, so we would want to mark that package as obsolete.
