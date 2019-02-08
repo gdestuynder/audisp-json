@@ -83,6 +83,7 @@ static int machine = -1;
 
 static long int curl_timeout = -1;
 FILE *curl_logfile;
+FILE *file_log;
 CURLM *multi_h;
 CURL *easy_h;
 struct curl_slist *slist1;
@@ -137,7 +138,11 @@ void prepare_curl_handle(char *new_msg)
  */
 	if (config.curl_logfile != NULL) {
 		curl_logfile = fopen(config.curl_logfile, "ab");
-		curl_easy_setopt(easy_h, CURLOPT_STDERR, curl_logfile);
+		if (curl_logfile == NULL) {
+			syslog(LOG_ERR, "could not open debug curl logfile %s", config.curl_logfile);
+		} else {
+			curl_easy_setopt(easy_h, CURLOPT_STDERR, curl_logfile);
+		}
 	}
 	curl_easy_setopt(easy_h, CURLOPT_VERBOSE, config.curl_verbose);
 	curl_easy_setopt(easy_h, CURLOPT_TIMEOUT_MS, MAX_CURL_GLOBAL_TIMEOUT);
@@ -173,6 +178,12 @@ int list_check_queue()
 /* select and fetch urls */
 void curl_perform(void)
 {
+	/* Do we have curl enabled?
+	 * If not, just bail here
+	 */
+	if (config.file_log != NULL) {
+		return;
+	}
 	int msgs_left;
 	int maxfd = -1;
 	long http_code = 0;
@@ -437,6 +448,14 @@ int main(int argc, char *argv[])
 			return 1;
 	}
 
+	if (config.file_log != NULL) {
+		file_log = fopen(config.file_log, "ab");
+		if (file_log == NULL) {
+			syslog(LOG_ERR, "failed to open %s", config.file_log);
+			return -1;
+		}
+	}
+
 	au = auparse_init(AUSOURCE_FEED, NULL);
 	if (au == NULL) {
 		syslog(LOG_ERR, "could not initialize auparse");
@@ -536,6 +555,8 @@ int main(int argc, char *argv[])
 	curl_global_cleanup();
 	if (curl_logfile)
 		fclose(curl_logfile);
+	if (file_log)
+		fclose(file_log);
 	free_config(&config);
 	free(hostname);
 #ifdef REORDER_HACK
@@ -740,16 +761,24 @@ void syslog_json_msg(struct json_msg_type json_msg)
 			}
 	}
 
-	len += snprintf(new_q->msg+len, MAX_JSON_MSG_SIZE-len, "	}\n}");
+	len += snprintf(new_q->msg+len, MAX_JSON_MSG_SIZE-len, "	}\n}\n");
 	new_q->msg[MAX_JSON_MSG_SIZE-1] = '\0';
 
-	new_q->next = msg_queue_list;
-	msg_queue_list = new_q;
-	msg_queue_list_size++;
-
-#ifdef DEBUG
-	printf("%s\n", new_q->msg);
-#endif
+	/* If using curl, fill up the queue, else just print to file */
+	if (config.file_log == NULL) {
+		new_q->next = msg_queue_list;
+		msg_queue_list = new_q;
+		msg_queue_list_size++;
+	} else {
+		if (fputs(new_q->msg, file_log) < 0) {
+			/* Retry once (file closed?) */
+			file_log = fopen(config.file_log, "ab");
+			if (file_log == NULL || fputs(new_q->msg, file_log) < 0) {
+				syslog(LOG_ERR, "could not log to file %s", config.file_log);
+			}
+		}
+		free(new_q);
+	}
 }
 
 /* The main event handling, parsing function */
