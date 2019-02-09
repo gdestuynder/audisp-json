@@ -76,6 +76,7 @@
 -w /etc/syslog.conf -p wa -k syslog
 -w /etc/syslog-ng.conf -p wa -k syslog
 -w /etc/syslog-ng/ -p wa -k syslog
+w /etc/fluent/ -p wa -k syslog
 
 # Modify cron
 -w /etc/cron.allow -p wa -k cron
