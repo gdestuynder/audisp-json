@@ -172,7 +172,6 @@ w /etc/fluent/ -p wa -k syslog
 -w /etc/ld.so.preload -p wa -k binaries
 
 # System-wide shell profiles
--w /usr/share/zsh/site-functions/ -p wa -k configs
 
 # AF_SECURITY
 -a exit,always -F arch=b64 -S socket -F a0=14 -k net
