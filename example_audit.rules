@@ -27,7 +27,7 @@
 -r 1000
  
 ## Generic logging
-# Bypass regular calls
+# Log calls that may bypass normal syscalls calls
 -a always,exit -F arch=b64 -S personality -k bypass
 -a always,exit -F arch=b32 -S personality -k bypass
 
