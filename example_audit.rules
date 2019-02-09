@@ -9,7 +9,7 @@
 # First rule - delete all previous rules.
 -D
  
-# Increase the acching buffers to survive spikes, without dropping events.
+# Increase buffers to survive event spikes, without dropping events.
 # You can make this bigger for busy systems.
 # Value is x times an audit record size in kernel memory.
 # Large value may use quite a few megs of kernel memory.
