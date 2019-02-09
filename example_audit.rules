@@ -102,6 +102,9 @@
 -w /etc/pam.d -p wa -k pam
 -w /etc/security/ -p wa -k pam
 -w /lib/security/ -p wa -k pam
+
+# Modify sudoers
+-w /etc/sudoers -p wa -k user
  
 # Modify SSHD
 -w /etc/sshd/ -p wa -k sshd
