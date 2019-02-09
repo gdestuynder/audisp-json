@@ -18,7 +18,7 @@
 # Authors:
 #   Guillaume Destuynder <gdestuynder@mozilla.com>
 
-VERSION	:= 2.2.1
+VERSION	:= 2.2.2
 
 #FPM options, suggestions:
 # --replaces audisp-cef
