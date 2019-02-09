@@ -172,7 +172,6 @@ w /etc/fluent/ -p wa -k syslog
 -w /etc/ld.so.preload -p wa -k binaries
 
 # System-wide shell profiles
--w /etc/bash_completion.d/ -p wa -k configs
 -w /etc/bashrc -p wa -k configs
 -w /etc/environment -p wa -k configs
 -w /etc/environment.conf -p wa -k configs
