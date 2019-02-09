@@ -110,3 +110,36 @@ The audisp-json.conf file has a few options:
   message go to stderr.
 - `curl_cainfo` Specify the path to a single CA certificate, if needed. When not specified, system's CA bundle is used.
 - `file_log` Specify a file path to log the json data to. This disables mozdef logging.
+
+## Static compilation tips
+If you need to compile in statically compiled libraries, here are the variables to change from the makefile,
+using libcurl and openssl statically compiled as an example.
+
+```
+    @@ -48,9 +48,11 @@ else ifeq ($(DEBUG),1)
+    else
+    CFLAGS  := -fPIE -DPIE -g -O2 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all -D_FORTIFY_SOURCE=2
+    endif
+    +CFLAGS := -g -O2 -D_REENTRANT -D_GNU_SOURCE -fstack-protector-all -D_FORTIFY_SOURCE=2
+
+    -LDFLAGS        := -pie -Wl,-z,relro
+    -LIBS   := -lauparse -laudit `curl-config --libs`
+    +#LDFLAGS       := -pie -Wl,-z,relro -static
+    +LDFLAGS := -static -ldl -lz -lrt
+    +LIBS   := -lauparse -laudit $(pkg-config --static --libs libssl libcurl)
+    ./path-to-libcurl/lib/.libs/libcurl.a ./path-to-openssl/libssl.a
+    ./path-to-openssl/libcrypto.a -lpthread
+    DEFINES        := -DPROGRAM_VERSION\=${VERSION} ${REORDER_HACKF} ${IGNORE_EMPTY_EXECVE_COMMANDF}
+
+    GCC            := gcc
+```
+
+To compile libcurl in this example:
+
+```
+./configure --disable-shared --enable-static --prefix=/tmp/curl --disable-ldap --disable-sspi --without-librtmp --disable-ftp --disable-file --disable-dict --disable-telnet --disable-tftp --disable-
+tsp --disable-pop3 --disable-imap --disable-smtp --disable-gopher --disable-smb --without-libidn --with-ssl --without-libssh2 --without-nghttp2 --without-libpsl
+```
+
+NOTE: Any library you enable will need to be available as a static library as well.
+NOTE2: New libraries may be needed when using newer versions of `libcurl` and `openssl` so your mileage may vary.
