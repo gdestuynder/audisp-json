@@ -35,6 +35,7 @@
 #include <pwd.h>
 #include <netdb.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
 #include <time.h>
 #include <curl/curl.h>
 #include "libaudit.h"
@@ -801,6 +802,7 @@ static void handle_event(auparse_state_t *au,
 
 	typedef enum {
 		CAT_EXECVE,
+		CAT_READ,
 		CAT_WRITE,
 		CAT_PTRACE,
 		CAT_ATTR,
@@ -808,7 +810,9 @@ static void handle_event(auparse_state_t *au,
 		CAT_CHMOD,
 		CAT_CHOWN,
 		CAT_PROMISC,
-		CAT_TIME
+		CAT_TIME,
+		CAT_SOCKET,
+		CAT_LISTEN
 	} category_t;
 	category_t category;
 
@@ -1002,10 +1006,15 @@ static void handle_event(auparse_state_t *au,
 				json_msg.details = json_add_attr(json_msg.details, "processname", auparse_find_field(au, "comm"));
 				goto_record_type(au, type);
 
-				if (!strncmp(sys, "write", 5) || !strncmp(sys, "open", 4) || !strncmp(sys, "unlink", 6) || !strncmp(sys,
+				if (!strncmp(sys, "write", 5) || !strncmp(sys, "unlink", 6) || !strncmp(sys,
 							"rename", 6)) {
 					havejson = 1;
 					category = CAT_WRITE;
+				} else if (!strncmp(sys, "read", 4) || !strncmp(sys, "open", 4) || !strncmp(sys, "link", 4) ||
+						!strncmp(sys, "mmap", 4) || !strncmp(sys, "mmap2", 5) || !strncmp(sys, "sendfile", 8) ||
+						!strncmp(sys, "sendfile64", 10)) {
+					havejson = 1;
+					category = CAT_READ;
 				} else if (!strncmp(sys, "setxattr", 8)) {
 					havejson = 1;
 					category = CAT_ATTR;
@@ -1024,7 +1033,16 @@ static void handle_event(auparse_state_t *au,
 				} else if (!strncmp(sys, "ioctl", 5)) {
 					category = CAT_PROMISC;
 				} else if (!strncmp(sys, "adjtimex", 8)) {
+					havejson = 1;
 					category = CAT_TIME;
+				} else if (!strncmp(sys, "socket", 6)) {
+					havejson = 1;
+					category = CAT_SOCKET;
+					json_msg.details = json_add_attr(json_msg.details, "addr_family", auparse_find_field(au, "a0"));
+					json_msg.details = json_add_attr(json_msg.details, "sock_type", auparse_find_field(au, "a1"));
+				} else if (!strncmp(sys, "listen", 6)) {
+					havejson = 1;
+					category = CAT_LISTEN;
 				} else {
 					syslog(LOG_INFO, "System call %u %s is not supported by %s", i, sys, PROGRAM_NAME);
 				}

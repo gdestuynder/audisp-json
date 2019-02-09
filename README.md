@@ -97,7 +97,7 @@ This means, for example, all execve() and related calls will be aggregated into 
 
 NOTE: MozDef messages are not sent to syslog. They're sent to MozDef directly.
 
-Supported messages are listed in the document messages_format.rst
+Supported messages are listed in the document messages_format.md
 
 ## Configuration file
 
