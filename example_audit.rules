@@ -88,20 +88,44 @@ w /etc/fluent/ -p wa -k syslog
 -w /etc/cron.weekly/ -p wa -k cron
 -w /etc/crontab -p wa -k cron
 -w /var/spool/cron/root -p wa -k cron
--w /var/spool/atspool
--w /etc/at.allow
--w /etc/at.deny
+-w /var/spool/cron -p wa -k cron
+-w /var/spool/atspool -p wa -k cron
+-w /etc/at.allow -p wa -k cron
+-w /etc/at.deny -p wa -k cron
+-w /etc/anacrontab -p wa -k cron
  
 # Modify startup
+-w /boot -p wa -k init
 -w /etc/rc.d/init.d/ -p wa -k init
 -w /sbin/init -p wa -k init
 -w /etc/inittab -p wa -k init
 -w /etc/systemd/ -p wa -k init
+-w /etc/systemd/system -p wa -k init
+-w /etc/systemd/user -p wa -k init
+-w /etc/systemd/network -p wa -k init
 -w /etc/init.d/ -p wa -k init
+-w /etc/rc0.d -p wa -k init
+-w /etc/rc1.d -p wa -k init
+-w /etc/rc2.d -p wa -k init
+-w /etc/rc3.d -p wa -k init
+-w /etc/rc4.d -p wa -k init
+-w /etc/rc5.d -p wa -k init
+-w /etc/rc6.d -p wa -k init
+-w /etc/rc.d -p wa -k init
+-w /etc/rc.d/rc0.d -p wa -k init
+-w /etc/rc.d/rc1.d -p wa -k init
+-w /etc/rc.d/rc2.d -p wa -k init
+-w /etc/rc.d/rc3.d -p wa -k init
+-w /etc/rc.d/rc4.d -p wa -k init
+-w /etc/rc.d/rc5.d -p wa -k init
+-w /etc/rc.d/rc6.d -p wa -k init
+-w /etc/rc.d/rc.local -p wa -k init
+-w /etc/rc.local -p wa -k init
 
 # Modify PAM
 -w /etc/pam.d -p wa -k pam
 -w /etc/security/ -p wa -k pam
+-w /etc/security.d/ -p wa -k pam
 -w /lib/security/ -p wa -k pam
 
 # Modify sudoers
@@ -157,19 +181,32 @@ w /etc/fluent/ -p wa -k syslog
 -w /usr/local/libexec/ -p wa -k binaries
 
 # Important system files
--w /etc/sysctl.conf -p wa -k binaries
--w /etc/modprobe.conf
--w /etc/modprobe.conf.local
--w /etc/modprobe.d/ -p wa -k binaries
--w /etc/modules-load.d/ -p wa -k binaries
+-w /etc/sysctl.conf -p wa -k kernel
+-w /etc/sysctl.d -p wa -k kernel
+-w /etc/modprobe.conf -p wa -k kernel
+-w /etc/modprobe.conf.local -p wa -k kernel
+-w /etc/modprobe.d/ -p wa -k kernel
+-w /etc/modules-load.d/ -p wa -k kernel
 
 # Kernel modules
--w /lib/modules/ -p wa -k binaries
+-w /lib/modules/ -p wa -k kernel
+
+# Critical devices
+-w /dev/mem -p wa -k kernel
+-w /dev/kmem -p wa -k kernel
+-w /dev/port -p wa -k kernel
+-w /dev/oldmem -p wa -k kernel
+-w /dev/cpu/0/msr -p wa -k kernel
+-w /dev/cpu/1/msr -p wa -k kernel
+-w /dev/cpu/3/msr -p wa -k kernel
+-w /dev/cpu/4/msr -p wa -k kernel
+-w /sys/kernel/debug -p wa -k kernel
 
 # Libc preload and linking configuration
 -w /etc/ld.so.conf -p wa -k binaries
 -w /etc/ld.so.conf.d -p wa -k binaries
 -w /etc/ld.so.preload -p wa -k binaries
+-w /lib/x86_64-linux-gnu/ld-2.19.so -p wa -k binaries
 
 # System-wide shell profiles
 
