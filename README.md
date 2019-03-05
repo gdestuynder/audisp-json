@@ -56,6 +56,9 @@ They're self explanatory.
 - make clean
 - make rpm-aws # builds deps for amazonlinux, then builds rpm
 
+Note that packaging targets (like `make rpm`) will package an example rule file, but not use it by default. You can move
+it where needed manually.
+
 ### Mozilla build targets
 We previously used audisp-cef, so we would want to mark that package as obsolete.
 
