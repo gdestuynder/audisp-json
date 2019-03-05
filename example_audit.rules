@@ -103,6 +103,8 @@ w /etc/fluent/ -p wa -k syslog
 -w /etc/systemd/system -p wa -k init
 -w /etc/systemd/user -p wa -k init
 -w /etc/systemd/network -p wa -k init
+-w /etc/systemd/system/multi-user.target.wants -p wa -k init
+-w /usr/lib/systemd/system -p wa -k init
 -w /etc/init.d/ -p wa -k init
 -w /etc/rc0.d -p wa -k init
 -w /etc/rc1.d -p wa -k init
