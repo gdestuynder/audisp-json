@@ -76,7 +76,7 @@
 -w /etc/syslog.conf -p wa -k syslog
 -w /etc/syslog-ng.conf -p wa -k syslog
 -w /etc/syslog-ng/ -p wa -k syslog
-w /etc/fluent/ -p wa -k syslog
+-w /etc/fluent/ -p wa -k syslog
 
 # Modify cron
 -w /etc/cron.allow -p wa -k cron
@@ -87,21 +87,33 @@ w /etc/fluent/ -p wa -k syslog
 -w /etc/cron.monthly/ -p wa -k cron
 -w /etc/cron.weekly/ -p wa -k cron
 -w /etc/crontab -p wa -k cron
--w /var/spool/cron/root -p wa -k cron
--w /var/spool/atspool
--w /etc/at.allow
--w /etc/at.deny
+-w /var/spool/cron -p wa -k cron
+-w /var/spool/atspool -p wa -k cron
+-w /etc/at.allow -p wa -k cron
+-w /etc/at.deny -p wa -k cron
+-w /etc/anacrontab -p wa -k cron
  
 # Modify startup
--w /etc/rc.d/init.d/ -p wa -k init
+-w /boot -p wa -k init
+-w /etc/rc.d/ -p wa -k init
 -w /sbin/init -p wa -k init
 -w /etc/inittab -p wa -k init
 -w /etc/systemd/ -p wa -k init
+-w /usr/lib/systemd/system -p wa -k init
 -w /etc/init.d/ -p wa -k init
+-w /etc/rc0.d -p wa -k init
+-w /etc/rc1.d -p wa -k init
+-w /etc/rc2.d -p wa -k init
+-w /etc/rc3.d -p wa -k init
+-w /etc/rc4.d -p wa -k init
+-w /etc/rc5.d -p wa -k init
+-w /etc/rc6.d -p wa -k init
+-w /etc/rc.local -p wa -k init
 
 # Modify PAM
 -w /etc/pam.d -p wa -k pam
 -w /etc/security/ -p wa -k pam
+-w /etc/security.d/ -p wa -k pam
 -w /lib/security/ -p wa -k pam
 
 # Modify sudoers
@@ -115,7 +127,6 @@ w /etc/fluent/ -p wa -k syslog
 -w /etc/passwd -p wa -k user
 -w /etc/gshadow -p wa -k user
 -w /etc/shadow -p wa -k user
--w /etc/security/opasswd -p wa -k user
 -w /etc/sudoers -p wa -k user
  
 # Time changes
@@ -157,14 +168,15 @@ w /etc/fluent/ -p wa -k syslog
 -w /usr/local/libexec/ -p wa -k binaries
 
 # Important system files
--w /etc/sysctl.conf -p wa -k binaries
--w /etc/modprobe.conf
--w /etc/modprobe.conf.local
--w /etc/modprobe.d/ -p wa -k binaries
--w /etc/modules-load.d/ -p wa -k binaries
+-w /etc/sysctl.conf -p wa -k kernel
+-w /etc/sysctl.d -p wa -k kernel
+-w /etc/modprobe.conf -p wa -k kernel
+-w /etc/modprobe.conf.local -p wa -k kernel
+-w /etc/modprobe.d/ -p wa -k kernel
+-w /etc/modules-load.d/ -p wa -k kernel
 
 # Kernel modules
--w /lib/modules/ -p wa -k binaries
+-w /lib/modules/ -p wa -k kernel
 
 # Libc preload and linking configuration
 -w /etc/ld.so.conf -p wa -k binaries
