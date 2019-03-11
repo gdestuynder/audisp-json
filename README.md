@@ -54,10 +54,23 @@ They're self explanatory.
 - make install
 - make uninstall
 - make clean
-- make rpm-aws # builds deps for amazonlinux, then builds rpm
+- make rpm-deps # builds deps for amazonlinux, centos, etc.
 
 Note that packaging targets (like `make rpm`) will package an example rule file, but not use it by default. You can move
 it where needed manually.
+
+
+Example to build for CentOS:
+```
+docker run --rm -ti -v $(pwd):/build centos:7 /bin/bash -c "yum install -y make && cd /build && make rpm-deps && make
+rpm"
+```
+
+Or for AmazonLinux:
+```
+docker run --rm -ti -v $(pwd):/build amazonlinux /bin/bash -c "yum install -y make && cd /build && make rpm-deps && make
+rpm"
+```
 
 ### Mozilla build targets
 We previously used audisp-cef, so we would want to mark that package as obsolete.

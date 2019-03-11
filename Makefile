@@ -87,8 +87,8 @@ packaging: audisp-json au-json.conf audisp-json.conf example_audit.rules
 	${INSTALL} -D -m 0755 audisp-json tmp/sbin/audisp-json
 	${INSTALL} -D -m 0755 example_audit.rules tmp/etc/audit/rules.d/example_audit.rules
 
-rpm-aws: packaging
-	@echo You want to run this on an amazon build system, e.g.:
+rpm-deps:
+	@echo "If you want to run this on an centos|amazon|etc build system (e.g. here, amazon), do this:"
 	@echo `docker run --rm -ti -v $(pwd):/build amazonlinux /bin/bash` then cd /build and run this make target
 	@echo Installing dependencies...
 	yum -y install libcurl-devel audit-libs-devel libtool
