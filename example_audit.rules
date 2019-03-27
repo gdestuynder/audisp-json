@@ -72,7 +72,7 @@
  
 # Modify logging configuration
 -w /etc/rsyslog.conf -p wa -k syslog
--w /etc/rsyslog-ng/ -p wa -k syslog
+-w /etc/rsyslog.d/ -p wa -k syslog
 -w /etc/syslog.conf -p wa -k syslog
 -w /etc/syslog-ng.conf -p wa -k syslog
 -w /etc/syslog-ng/ -p wa -k syslog
