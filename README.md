@@ -72,6 +72,11 @@ docker run --rm -ti -v $(pwd):/build amazonlinux /bin/bash -c "yum install -y ma
 rpm"
 ```
 
+Or for Ubuntu:
+```
+docker run --rm -ti -v $(pwd):/build ubuntu:14.04 /bin/bash -c "apt-get update && apt-get -y install build-essential && cd /build && make deb-deps && make deb"
+```
+
 ### Mozilla build targets
 We previously used audisp-cef, so we would want to mark that package as obsolete.
 
