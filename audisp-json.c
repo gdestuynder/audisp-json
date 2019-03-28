@@ -1038,8 +1038,9 @@ static void handle_event(auparse_state_t *au,
 				} else if (!strncmp(sys, "socket", 6)) {
 					havejson = 1;
 					category = CAT_SOCKET;
-					json_msg.details = json_add_attr(json_msg.details, "addr_family", auparse_find_field(au, "a0"));
-					json_msg.details = json_add_attr(json_msg.details, "sock_type", auparse_find_field(au, "a1"));
+					json_msg.details = json_add_attr(json_msg.details, "domain", auparse_find_field(au, "a0"));
+					json_msg.details = json_add_attr(json_msg.details, "type", auparse_find_field(au, "a1"));
+					json_msg.details = json_add_attr(json_msg.details, "protocol", auparse_find_field(au, "a2"));
 				} else if (!strncmp(sys, "listen", 6)) {
 					havejson = 1;
 					category = CAT_LISTEN;
