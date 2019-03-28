@@ -1138,44 +1138,31 @@ static void handle_event(auparse_state_t *au,
 		}
 #endif
 		json_msg.category = "execve";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"Execve: %s",
-					unescape(fullcmd));
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Execve: %s", unescape(fullcmd));
 	} else if (category == CAT_WRITE) {
 		json_msg.category = "write";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"Write: %s",
-					unescape(path));
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Write: %s", unescape(path));
 	} else if (category == CAT_ATTR) {
 		json_msg.category = "attribute";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"Attribute: %s",
-					unescape(path));
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Attribute: %s", unescape(path));
 	} else if (category == CAT_CHMOD) {
 		json_msg.category = "chmod";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"Chmod: %s",
-					unescape(path));
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Chmod: %s", unescape(path));
 	} else if (category == CAT_CHOWN) {
 		json_msg.category = "chown";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"Chown: %s",
-					unescape(path));
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Chown: %s", unescape(path));
 	} else if (category == CAT_PTRACE) {
 		json_msg.category = "ptrace";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"Ptrace");
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Ptrace");
 	} else if (category == CAT_TIME) {
 		json_msg.category = "time";
-		snprintf(json_msg.summary,
-					MAX_SUMMARY_LEN,
-					"time has been modified");
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "time has been modified");
+	} else if (category == CAT_SOCKET) {
+		json_msg.category = "socket";
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Socket");
+	} else if (category == CAT_LISTEN) {
+		json_msg.category = "listen";
+		snprintf(json_msg.summary, MAX_SUMMARY_LEN, "Listen");
 	} else if (category == CAT_PROMISC) {
 		json_msg.category = "promiscuous";
 		snprintf(json_msg.summary,
