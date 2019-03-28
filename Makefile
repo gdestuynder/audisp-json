@@ -125,6 +125,9 @@ clean:
 	rm -rf *.rpm
 	rm -rf *.deb
 
+release: build_all.sh
+	./build_all.sh
+
 clean-release:
 	rm -rf release
 
