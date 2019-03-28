@@ -125,4 +125,7 @@ clean:
 	rm -rf *.rpm
 	rm -rf *.deb
 
+clean-release:
+	rm -rf release
+
 .PHONY: clean
