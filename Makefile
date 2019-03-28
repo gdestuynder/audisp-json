@@ -62,6 +62,9 @@ PREFIX	:= /usr
 
 all: audisp-json
 
+version:
+	@echo $(VERSION)
+
 audisp-json: json-config.o audisp-json.o
 	${LIBTOOL} --tag=CC --mode=link gcc ${CFLAGS} ${LDFLAGS} ${LIBS} -o audisp-json json-config.o audisp-json.o
 
@@ -105,7 +108,6 @@ deb-deps:
 	@echo "If you want to run this on a debian|ubuntuetc build system (e.g. here, ubuntu), do this:"
 	@echo `docker run --rm -ti -v $(pwd):/build ubuntu:14.04 /bin/bash` then cd /build and run this make target
 	@echo Installing dependencies...
-	apt-get update
 	apt-get install -y build-essential libcurl4-openssl-dev libaudit-dev libaudit1 libaudit-common libauparse-dev libauparse0 libtool ruby ruby-dev
 	gem install --no-ri --no-rdoc fpm
 	$(MAKE) deb
