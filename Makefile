@@ -101,6 +101,15 @@ rpm: packaging
 		--url https://github.com/gdestuynder/audisp-json -d audit-libs -d libcurl \
 		--config-files etc/audisp/plugins.d/au-json.conf --config-files etc/audisp/audisp-json.conf -s dir -t rpm .
 
+deb-deps:
+	@echo "If you want to run this on a debian|ubuntuetc build system (e.g. here, ubuntu), do this:"
+	@echo `docker run --rm -ti -v $(pwd):/build ubuntu:14.04 /bin/bash` then cd /build and run this make target
+	@echo Installing dependencies...
+	apt-get update
+	apt-get install -y build-essential libcurl4-openssl-dev libaudit-dev libaudit1 libaudit-common libauparse-dev libauparse0 libtool ruby ruby-dev
+	gem install --no-ri --no-rdoc fpm
+	$(MAKE) deb
+
 deb: packaging
 	fpm ${FPMOPTS} -C tmp -v ${VERSION} -n audisp-json --license GPL --vendor mozilla --description "json plugin for Linux Audit" \
 		--url https://github.com/gdestuynder/audisp-json -d auditd -d libcurl3 \
