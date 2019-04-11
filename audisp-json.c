@@ -105,7 +105,7 @@ struct json_msg_type {
 	char	*severity;
 	char	*hostname;
 	int		processid;
-	char	*processname;
+	char	*program;
 	char	*timestamp;
 	struct	ll *details;
 };
@@ -740,7 +740,7 @@ void syslog_json_msg(struct json_msg_type json_msg)
 	\"severity\": \"%s\",\n\
 	\"hostname\": \"%s\",\n\
 	\"processid\": \"%i\",\n\
-	\"processname\": \"%s\",\n\
+	\"program\": \"%s\",\n\
 	\"timestamp\": \"%s\",\n\
 	\"tags\": [\n\
 		\"%s\",\n\
@@ -793,7 +793,7 @@ static void handle_event(auparse_state_t *au,
 		.category		= NULL,
 		.hostname		= hostname,
 		.processid		= 0,
-		.processname	= NULL,
+		.program	    = NULL,
 		.severity		= "INFO",
 		.summary		= NULL,
 		.timestamp		= NULL,

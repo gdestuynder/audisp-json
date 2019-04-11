@@ -58,7 +58,7 @@ NOTE: All "details" field values are string in order to deal with document index
             },
             "hostname": "blah.private.scl3.mozilla.com",
             "processid": 14619,
-            "processname": "audisp-json",
+            "program": "audisp-json",
             "severity": "INFO",
             "summary": "Execve: sudo cat /etc/passwd",
             "tags": [
@@ -75,7 +75,7 @@ NOTE: See also 'man 8 auditctl' and/or https://access.redhat.com/site/documentat
 
 - category: Type of message (such as execve, write, chmod, etc.).
 - processid: PID of the process generating the messages (audisp-json's PID)
-- processname: Process name of the process generating the messages (audisp-json).
+- program: Name of the program generating the messages (audisp-json).
 - hostname: System FQDN as seen get gethostbyname().
 - severity: Syslog-style severity level.
 - summary: Human readable summary of the message.
@@ -101,6 +101,7 @@ NOTE: See also 'man 8 auditctl' and/or https://access.redhat.com/site/documentat
 - details.inode: Node identifier on the filesystem for the program.
 - details.cwd: Current working directory of the program.
 - details.parentprocess: Name of the parent process which has spawned details.process.
+- details.processname: Name of the process that triggered the rule.
 - details.ppid: PID of the parent process.
 
 ## Implemented message categories
