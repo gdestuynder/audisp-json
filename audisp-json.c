@@ -457,6 +457,14 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (config.prepend_msg == NULL) {
+		config.prepend_msg = "\0";
+	}
+
+	if (config.postpend_msg == NULL) {
+		config.postpend_msg = "\0";
+	}
+
 	au = auparse_init(AUSOURCE_FEED, NULL);
 	if (au == NULL) {
 		syslog(LOG_ERR, "could not initialize auparse");
