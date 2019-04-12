@@ -734,7 +734,7 @@ void syslog_json_msg(struct json_msg_type json_msg)
 	}
 
 	len = snprintf(new_q->msg, MAX_JSON_MSG_SIZE,
-"{\
+"%s{\
 \"category\": \"%s\",\
 \"summary\": \"%s\",\
 \"severity\": \"%s\",\
@@ -748,7 +748,7 @@ void syslog_json_msg(struct json_msg_type json_msg)
 \"audit\"\
 ],\
 \"details\": {",
-		json_msg.category, json_msg.summary, json_msg.severity, json_msg.hostname, json_msg.processid,
+		config.prepend_msg, json_msg.category, json_msg.summary, json_msg.severity, json_msg.hostname, json_msg.processid,
 		PROGRAM_NAME, json_msg.timestamp, PROGRAM_NAME, STR(PROGRAM_VERSION));
 
 	while (head) {
@@ -762,7 +762,7 @@ void syslog_json_msg(struct json_msg_type json_msg)
 			}
 	}
 
-	len += snprintf(new_q->msg+len, MAX_JSON_MSG_SIZE-len, "}\n");
+	len += snprintf(new_q->msg+len, MAX_JSON_MSG_SIZE-len, "}%s\n", config.postpend_msg);
 	new_q->msg[MAX_JSON_MSG_SIZE-1] = '\0';
 
 	/* If using curl, fill up the queue, else just print to file */

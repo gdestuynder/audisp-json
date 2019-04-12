@@ -32,6 +32,8 @@ typedef struct json_conf
 	const char *curl_cainfo;
 	const char *curl_logfile;
         const char *file_log;
+        const char *prepend_msg;
+        const char *postpend_msg;
 	int ssl_verify;
 	int curl_verbose;
 } json_conf_t;

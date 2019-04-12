@@ -131,6 +131,10 @@ The audisp-json.conf file has a few options:
   message go to stderr.
 - `curl_cainfo` Specify the path to a single CA certificate, if needed. When not specified, system's CA bundle is used.
 - `file_log` Specify a file path to log the json data to. This disables mozdef logging.
+- `prepend_msg` Specific a string to prepend all messages with. For example, for Fluentd you might want
+  `prepend_msg={"message":`.
+- `postpend_msg` Similar to `prepend_msg` but for postpending the messages. To complement the previous example you would
+  use `postpend_msg=}`.
 
 ## Static compilation tips
 If you need to compile in statically compiled libraries, here are the variables to change from the makefile,

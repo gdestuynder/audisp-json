@@ -69,6 +69,10 @@ static int curl_fparser(struct nv_pair *nv, int line,
 		json_conf_t *config);
 static int file_fparser(struct nv_pair *nv, int line,
 		json_conf_t *config);
+static int prepend_parser(struct nv_pair *nv, int line,
+		json_conf_t *config);
+static int postpend_parser(struct nv_pair *nv, int line,
+		json_conf_t *config);
 
 static const struct kw_pair keywords[] =
 {
@@ -78,6 +82,8 @@ static const struct kw_pair keywords[] =
 	{"curl_verbose", curl_parser,	0},
 	{"curl_logfile", curl_fparser,	0},
 	{"file_log", file_fparser,	0},
+	{"prepend_msg", prepend_parser, 0},
+	{"postpend_msg", postpend_parser, 0},
 	{NULL}
 };
 
@@ -341,6 +347,26 @@ static int file_fparser(struct nv_pair *nv, int line,
 		config->file_log = strdup(nv->value);
 	else
 		config->file_log = NULL;
+	return 0;
+}
+
+static int prepend_parser(struct nv_pair *nv, int line, 
+		json_conf_t *config)
+{
+	if (nv->value)
+		config->prepend_msg = strdup(nv->value);
+	else
+		config->prepend_msg = NULL;
+	return 0;
+}
+
+static int postpend_parser(struct nv_pair *nv, int line, 
+		json_conf_t *config)
+{
+	if (nv->value)
+		config->postpend_msg = strdup(nv->value);
+	else
+		config->postpend_msg = NULL;
 	return 0;
 }
 
