@@ -131,4 +131,6 @@ release: build_all.sh
 clean-release:
 	rm -rf release
 
+test:
+	./test.sh audit.log
 .PHONY: clean
