@@ -839,6 +839,8 @@ static void handle_event(auparse_state_t *au,
 	int argcount, i;
 	int promisc;
 	int havejson = 0;
+	int haveserial = 0;
+	int havetypes[128];
 
 	/* wait until the lib gives up a full/ready event */
 	if (cb_event_type != AUPARSE_CB_EVENT_READY) {
@@ -856,15 +858,31 @@ static void handle_event(auparse_state_t *au,
 		type = auparse_get_type(au);
 		if (!type)
 			continue;
+		havetypes[num] = type;
+		num++;
+		/* Don't duplicate msg from types we already have
+		 * Note that this mean we lose certain data msg such as "item=x ..." on purpose
+		 * If you care for these, just know that they are not recorded
+		 * If you wanted them, you need sublists for them and they are not always all that valuable, depending on your
+		 * use case
+		 */
+		for (i=0;i<num;i++) {
+			if (havetypes[i] == type) {
+				continue;
+			}
+		}
 
 		if (!auparse_first_field(au))
 			continue;
 
-		t = auparse_get_time(au);
-		tmp = localtime(&t);
-		strftime(json_msg.timestamp, TS_LEN, "%FT%T%z", tmp);
-		snprintf(serial, TS_LEN-1, "%lu", auparse_get_serial(au));
-		json_msg.details = json_add_attr(json_msg.details, "auditserial", serial);
+		if (!haveserial) {
+			t = auparse_get_time(au);
+			tmp = localtime(&t);
+			strftime(json_msg.timestamp, TS_LEN, "%FT%T%z", tmp);
+			snprintf(serial, TS_LEN-1, "%lu", auparse_get_serial(au));
+			json_msg.details = json_add_attr(json_msg.details, "auditserial", serial);
+			haveserial = 1;
+		}
 
 		switch (type) {
 			case AUDIT_ANOM_PROMISCUOUS:
@@ -872,7 +890,6 @@ static void handle_event(auparse_state_t *au,
 				if (!dev)
 					return;
 
-				havejson = 1;
 				category = CAT_PROMISC;
 
 				json_msg.details = json_add_attr(json_msg.details, "dev", dev);
@@ -906,7 +923,6 @@ static void handle_event(auparse_state_t *au,
 				if (!argc)
 					return;
 
-				havejson = 1;
 				category = CAT_APPARMOR;
 
 				json_msg.details = json_add_attr(json_msg.details, "aaresult", auparse_get_field_str(au));
@@ -1106,7 +1122,6 @@ static void handle_event(auparse_state_t *au,
 			default:
 				break;
 		}
-		num++;
 	}
 
 	if (!havejson) {
