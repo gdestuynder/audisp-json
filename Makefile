@@ -18,7 +18,7 @@
 # Authors:
 #   Guillaume Destuynder <gdestuynder@mozilla.com>
 
-VERSION	:= 2.2.6
+VERSION	:= 2.2.7
 
 #FPM options, suggestions:
 # --replaces audisp-cef
@@ -88,7 +88,7 @@ packaging: audisp-json au-json.conf audisp-json.conf example_audit.rules
 	${INSTALL} -D -m 0644 au-json.conf tmp/etc/audisp/plugins.d/au-json.conf
 	${INSTALL} -D -m 0644 audisp-json.conf tmp/etc/audisp/audisp-json.conf
 	${INSTALL} -D -m 0755 audisp-json tmp/sbin/audisp-json
-	${INSTALL} -D -m 0755 example_audit.rules tmp/etc/audit/rules.d/example_audit.rules
+	${INSTALL} -D -m 0755 example_audit.rules tmp/usr/share/doc/audisp-json/rules/example_audit.rules
 
 rpm-deps:
 	@echo "If you want to run this on an centos|amazon|etc build system (e.g. here, amazon), do this:"
