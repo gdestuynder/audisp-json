@@ -9,6 +9,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
+    - name: deps
+      run: apt-get install -y libtool build-essential libcurl4-openssl-dev libaudit-dev libaudit1 libaudit-common libauparse-dev libauparse0 libtool
     - name: make
       run: make
     - name: make install
