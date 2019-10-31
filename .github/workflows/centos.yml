@@ -1,0 +1,15 @@
+name: Build CI
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: centos-latest
+    
+    steps:
+    - uses: actions/checkout@v1
+    - name: make
+      run: make
+    - name: make install
+      run: make install
