@@ -27,10 +27,11 @@ FPMOPTS :=
 
 # CentOS 8 moves audisp plugins into a different path. Ignore for
 # all other variants
-ifeq ($(shell test -f /etc/redhat-release && grep -q release\ 8\\.0 /etc/redhat-release),0)
-	AUDISP_PLUGINS_PATH := /etc/auditd/plugins.d
+CENTOS8TEST := $(shell test -f /etc/redhat-release && grep -q release\ 8\\.0 /etc/redhat-release)
+ifeq ($(.SHELLSTATUS),0)
+	AUDISP_PLUGINS_PATH := etc/auditd/plugins.d
 else
-	AUDISP_PLUGINS_PATH := /etc/audisp/plugins.d
+	AUDISP_PLUGINS_PATH := etc/audisp/plugins.d
 endif
 
 # Turn this on if you get issues with out of sequence messages/missing event attributes
@@ -83,17 +84,17 @@ audisp-json.o: audisp-json.c
 	${GCC} -I. ${CFLAGS} ${DEBUGF} ${LIBS} ${DEFINES} -c -o audisp-json.o audisp-json.c
 
 install: audisp-json au-json.conf audisp-json.conf
-	${INSTALL} -D -m 0644 au-json.conf ${DESTDIR}/${PREFIX}/etc/audisp/plugins.d/au-json.conf
+	${INSTALL} -D -m 0644 au-json.conf ${DESTDIR}/${PREFIX}/${AUDISP_PLUGINS_PATH}/au-json.conf
 	${INSTALL} -D -m 0644 audisp-json.conf ${DESTDIR}/${PREFIX}/etc/audisp/audisp-json.conf
 	${INSTALL} -D -m 0755 audisp-json ${DESTDIR}/${PREFIX}/sbin/audisp-json
 
 uninstall:
-	rm -f ${DESTDIR}/${PREFIX}/etc/audisp/plugins.d/au-json.conf
+	rm -f ${DESTDIR}/${PREFIX}/${AUDISP_PLUGINS_PATH}/au-json.conf
 	rm -f ${DESTDIR}/${PREFIX}/etc/audisp/audisp-json.conf
 	rm -f ${DESTDIR}/${PREFIX}/sbin/audisp-json
 
 packaging: audisp-json au-json.conf audisp-json.conf example_audit.rules
-	${INSTALL} -D -m 0644 au-json.conf tmp${AUDISP_PLUGINS_PATH}/au-json.conf
+	${INSTALL} -D -m 0644 au-json.conf tmp/${AUDISP_PLUGINS_PATH}/au-json.conf
 	${INSTALL} -D -m 0644 audisp-json.conf tmp/etc/audisp/audisp-json.conf
 	${INSTALL} -D -m 0755 audisp-json tmp/sbin/audisp-json
 	${INSTALL} -D -m 0755 example_audit.rules tmp/usr/share/doc/audisp-json/rules/example_audit.rules
@@ -110,7 +111,7 @@ rpm-deps:
 rpm: packaging
 	fpm ${FPMOPTS} -C tmp -v ${VERSION} -n audisp-json --license GPL --vendor mozilla --description "json plugin for Linux Audit" \
 		--url https://github.com/gdestuynder/audisp-json -d audit-libs -d libcurl \
-		--config-files etc/audisp/plugins.d/au-json.conf --config-files etc/audisp/audisp-json.conf -s dir -t rpm .
+		--config-files ${AUDISP_PLUGINS_PATH}/au-json.conf --config-files etc/audisp/audisp-json.conf -s dir -t rpm .
 
 deb-deps:
 	@echo "If you want to run this on a debian|ubuntuetc build system (e.g. here, ubuntu), do this:"
