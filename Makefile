@@ -18,7 +18,7 @@
 # Authors:
 #   Guillaume Destuynder <gdestuynder@mozilla.com>
 
-VERSION	:= 2.2.8
+VERSION	:= 2.2.9
 
 #FPM options, suggestions:
 # --replaces audisp-cef
@@ -29,7 +29,7 @@ FPMOPTS :=
 # all other variants
 CENTOS8TEST := $(shell test -f /etc/redhat-release && grep -q release\ 8\\.0 /etc/redhat-release)
 ifeq ($(.SHELLSTATUS),0)
-	AUDISP_PLUGINS_PATH := etc/auditd/plugins.d
+	AUDISP_PLUGINS_PATH := etc/audit/plugins.d
 else
 	AUDISP_PLUGINS_PATH := etc/audisp/plugins.d
 endif
