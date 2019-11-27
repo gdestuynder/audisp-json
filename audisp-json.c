@@ -730,11 +730,6 @@ void syslog_json_msg(struct json_msg_type json_msg)
 	queue_t *new_q;
 	int len;
 
-	if (msg_queue_list_size > MAX_CURL_QUEUE_SIZE) {
-		syslog(LOG_WARNING, "syslog_json_msg() MAX_CURL_QUEUE_SIZE of %u reached, message lost!", MAX_CURL_QUEUE_SIZE);
-		return;
-	}
-
 	new_q = malloc(sizeof(queue_t));
 	if (!new_q) {
 		syslog(LOG_ERR, "syslog_json_msg() new_q malloc() failed, message lost!");
@@ -775,9 +770,13 @@ void syslog_json_msg(struct json_msg_type json_msg)
 
 	/* If using curl, fill up the queue, else just print to file */
 	if (config.file_log == NULL) {
-		new_q->next = msg_queue_list;
-		msg_queue_list = new_q;
-		msg_queue_list_size++;
+		if (msg_queue_list_size > MAX_CURL_QUEUE_SIZE) {
+			syslog(LOG_WARNING, "syslog_json_msg() MAX_CURL_QUEUE_SIZE of %u reached, message lost!", MAX_CURL_QUEUE_SIZE);
+		} else {
+			new_q->next = msg_queue_list;
+			msg_queue_list = new_q;
+			msg_queue_list_size++;
+		}
 	} else {
 		if (fputs(new_q->msg, file_log) < 0) {
 			/* Retry once (file closed?) */
