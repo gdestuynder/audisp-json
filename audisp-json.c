@@ -847,7 +847,7 @@ static void handle_event(auparse_state_t *au,
 	}
 
 	json_msg.timestamp = (char *)alloca(TS_LEN);
-	json_msg.summary = (char *)alloca(MAX_SUMMARY_LEN);
+	json_msg.summary = (char *)alloca(MAX_SUMMARY_LEN+1);
 	if (!json_msg.summary || !json_msg.timestamp) {
 		syslog(LOG_ERR, "handle_event() alloca failed, message lost!");
 		return;
@@ -927,8 +927,15 @@ static void handle_event(auparse_state_t *au,
 				json_msg.details = json_add_attr(json_msg.details, "aaresult", auparse_get_field_str(au));
 				goto_record_type(au, type);
 
-				json_msg.summary = unescape(auparse_find_field(au, "info"));
-				goto_record_type(au, type);
+				{
+					char *avcSummary = unescape(auparse_find_field(au, "info"));
+
+					json_msg.summary[0] = '\0';
+					if( avcSummary ) {
+						strncpy(json_msg.summary, avcSummary, MAX_SUMMARY_LEN);
+					}
+					goto_record_type(au, type);
+				}
 
 				json_msg.details = json_add_attr(json_msg.details, "aacoperation", auparse_find_field(au, "operation"));
 				goto_record_type(au, type);
